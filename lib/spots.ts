@@ -22,3 +22,6 @@ export const SPOTS: Spot[] = [
 ];
 
 export const IMG_ASPECT = 1;
+
+/** 방 씬 이미지 경로 — Scene(배경)과 Hotspot(호버 팝 복제)이 공유 */
+export const ROOM_IMG = "/room3.png";
