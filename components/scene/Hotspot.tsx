@@ -1,5 +1,5 @@
 "use client";
-import { Spot } from "@/lib/spots";
+import { Spot, ROOM_IMG } from "@/lib/spots";
 
 interface Props {
   spot: Spot;
@@ -21,7 +21,18 @@ export function Hotspot({ spot, disabled, highlight, introDelay = null, onSelect
       style={{ left: `${left}%`, top: `${top}%`, width: `${width}%`, height: `${height}%` }}
       className="group absolute rounded-[14px] enabled:cursor-pointer disabled:pointer-events-none"
     >
-      {/* 호버 글로우 — 가구 자체가 밝아짐 */}
+      {/* 호버 팝 — 방 이미지에서 이 영역만 잘라낸 복제본을 5% 확대 (가구가 살짝 커지는 효과).
+          가장자리는 라디얼 마스크로 페더링해 사각형 티를 없앰 */}
+      <span
+        aria-hidden
+        style={{
+          backgroundImage: `url(${ROOM_IMG})`,
+          backgroundSize: `${10000 / width}% ${10000 / height}%`,
+          backgroundPosition: `${(left / (100 - width)) * 100}% ${(top / (100 - height)) * 100}%`,
+        }}
+        className="absolute inset-0 rounded-[inherit] opacity-0 scale-100 transition-all duration-200 group-hover:opacity-100 group-hover:scale-105 group-focus-visible:opacity-100 group-focus-visible:scale-105 [mask-image:radial-gradient(ellipse_at_center,black_55%,transparent_92%)] motion-reduce:transition-none pointer-events-none"
+      />
+      {/* 호버 글로우 — 가구 자체가 밝아짐 (어두운 아트에서만 효과) */}
       <span
         aria-hidden
         className="absolute inset-0 rounded-[inherit] mix-blend-screen bg-[radial-gradient(ellipse_at_center,theme(colors.cream/65%),theme(colors.cream/25%)_55%,transparent_78%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none"
@@ -35,11 +46,11 @@ export function Hotspot({ spot, disabled, highlight, introDelay = null, onSelect
           style={{ animationDelay: `${introDelay}s` }}
         />
       )}
-      {/* 상시 강조 — 어두운 방에서 홀로 빛나며 맥동 */}
+      {/* 상시 강조 — 어두운 방에서 폰 화면 불빛처럼 작고 부드럽게 맥동 */}
       {highlight && (
         <span
           aria-hidden
-          className="absolute inset-0 rounded-[inherit] mix-blend-screen bg-[radial-gradient(ellipse_at_center,theme(colors.cream/85%),theme(colors.amber/45%)_50%,transparent_80%)] animate-pulse pointer-events-none"
+          className="absolute inset-0 rounded-[inherit] mix-blend-screen bg-[radial-gradient(ellipse_at_center,theme(colors.cream/90%)_0%,theme(colors.amber/35%)_30%,transparent_55%)] blur-[10px] animate-pulse pointer-events-none"
         />
       )}
     </button>
