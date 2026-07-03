@@ -21,3 +21,12 @@ body {
   animation: ring-shake 0.85s ease-in-out infinite;
   transform-origin: 50% 88%;
 }
+
+/* 입장 온보딩 — 로그인 직후 핫스팟이 순서대로 한 번씩 반짝 */
+@keyframes glow-once {
+  0%, 100% { opacity: 0; }
+  35%, 55% { opacity: 1; }
+}
+.animate-glow-once {
+  animation: glow-once 0.9s ease-in-out both;
+}
