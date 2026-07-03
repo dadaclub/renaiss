@@ -8,10 +8,12 @@ interface Props {
   highlight?: boolean;
   /** 입장 온보딩 — 초 단위 딜레이. null이 아니면 한 번 반짝이고 사라짐 */
   introDelay?: number | null;
+  /** 호버 팝(5% 확대) 활성화 — 로그인 후에만 (어두운 방에선 복제본이 밝게 떠서 분위기 깨짐) */
+  pop?: boolean;
   onSelect: (spot: Spot) => void;
 }
 
-export function Hotspot({ spot, disabled, highlight, introDelay = null, onSelect }: Props) {
+export function Hotspot({ spot, disabled, highlight, introDelay = null, pop = false, onSelect }: Props) {
   const { left, top, width, height } = spot.area;
   return (
     <button
@@ -23,15 +25,17 @@ export function Hotspot({ spot, disabled, highlight, introDelay = null, onSelect
     >
       {/* 호버 팝 — 방 이미지에서 이 영역만 잘라낸 복제본을 5% 확대 (가구가 살짝 커지는 효과).
           가장자리는 라디얼 마스크로 페더링해 사각형 티를 없앰 */}
-      <span
-        aria-hidden
-        style={{
-          backgroundImage: `url(${ROOM_IMG})`,
-          backgroundSize: `${10000 / width}% ${10000 / height}%`,
-          backgroundPosition: `${(left / (100 - width)) * 100}% ${(top / (100 - height)) * 100}%`,
-        }}
-        className="absolute inset-0 rounded-[inherit] opacity-0 scale-100 transition-all duration-200 group-hover:opacity-100 group-hover:scale-105 group-focus-visible:opacity-100 group-focus-visible:scale-105 [mask-image:radial-gradient(ellipse_at_center,black_55%,transparent_92%)] motion-reduce:transition-none pointer-events-none"
-      />
+      {pop && (
+        <span
+          aria-hidden
+          style={{
+            backgroundImage: `url(${ROOM_IMG})`,
+            backgroundSize: `${10000 / width}% ${10000 / height}%`,
+            backgroundPosition: `${(left / (100 - width)) * 100}% ${(top / (100 - height)) * 100}%`,
+          }}
+          className="absolute inset-0 rounded-[inherit] opacity-0 scale-100 transition-all duration-200 group-hover:opacity-100 group-hover:scale-105 group-focus-visible:opacity-100 group-focus-visible:scale-105 [mask-image:radial-gradient(ellipse_at_center,black_55%,transparent_92%)] motion-reduce:transition-none pointer-events-none"
+        />
+      )}
       {/* 호버 글로우 — 가구 자체가 밝아짐 (어두운 아트에서만 효과) */}
       <span
         aria-hidden

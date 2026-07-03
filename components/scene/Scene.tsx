@@ -87,6 +87,7 @@ export function Scene() {
               disabled={!enabled}
               highlight={isPhone && !entered && !active}
               introDelay={intro ? i * INTRO_STAGGER : null}
+              pop={entered}
               onSelect={select}
             />
           );
