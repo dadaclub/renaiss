@@ -52,10 +52,10 @@ export function Scene() {
       <div
         ref={sceneRef}
         style={{ transform, transitionProperty: "transform", transitionDuration: "0.85s" }}
-        className="relative shrink-0 w-[max(100vw,233.8vh)] aspect-[1080/462] ease-camera"
+        className="relative shrink-0 w-[min(100vw,100vh)] aspect-square ease-camera"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/room2.webp" alt="My room" className="block w-full h-full select-none" draggable={false} />
+        <img src="/room3.png" alt="My room (sketch)" className="block w-full h-full select-none" draggable={false} />
 
         {/* 로그인 전: 방 전체 어둡게 (핸드폰만 빛남) */}
         <div
