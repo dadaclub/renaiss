@@ -1,5 +1,5 @@
 /** 핫스팟 좌표 설정 — 이미지(room2.webp, 1080x462) 기준 %. 좌표 수정은 이 파일에서만. */
-export type SpotId = "cabinet" | "computer" | "window" | "phone" | "photo" | "album";
+export type SpotId = "cabinet" | "computer" | "window" | "phone" | "photo" | "album" | "note";
 
 export interface Spot {
   id: SpotId;
@@ -18,6 +18,7 @@ export const SPOTS: Spot[] = [
   { id: "photo",    label: "Photo frame",  area: { left: 43, top: 25, width: 7,  height: 19 }, zoom: { cx: 0.47, cy: 0.35, scale: 2.6 } },
   { id: "phone",    label: "Phone",        area: { left: 40, top: 56, width: 8,  height: 10 }, zoom: { cx: 0.45, cy: 0.61, scale: 2.8 } },
   { id: "album",    label: "Album",        area: { left: 61, top: 54, width: 10, height: 17 }, zoom: { cx: 0.66, cy: 0.62, scale: 2.6 } },
+  { id: "note",     label: "Guestbook",    area: { left: 55, top: 39, width: 8,  height: 11 }, zoom: { cx: 0.59, cy: 0.45, scale: 2.6 } },
 ];
 
 export const IMG_ASPECT = 1080 / 462;
