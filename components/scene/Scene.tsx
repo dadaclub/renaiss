@@ -14,8 +14,13 @@ import { ObjectScreen } from "./ObjectScreen";
 export function Scene() {
   const [entered, setEntered] = useState(false);
   const [active, setActive] = useState<SpotId | null>(null);
+  const [intro, setIntro] = useState(false); // 입장 온보딩 — 핫스팟 순차 반짝
   const sceneRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState(""); // 로그인 연출(폰 줌)에만 사용
+
+  const INTRO_START = 900; // 방 밝아지는 시간과 동기화
+  const INTRO_STAGGER = 0.18; // 스팟당 딜레이(초)
+  const INTRO_GLOW = 900; // glow-once 애니메이션 길이(ms)
 
   const select = (spot: Spot) => {
     if (spot.id === "phone" && !entered) {
@@ -39,10 +44,17 @@ export function Scene() {
   const login = () => {
     setEntered(true);
     close();
+    // 방이 밝아진 뒤 핫스팟을 순서대로 한 번씩 반짝여 위치를 알려줌
+    setTimeout(() => setIntro(true), INTRO_START);
+    setTimeout(
+      () => setIntro(false),
+      INTRO_START + SPOTS.length * INTRO_STAGGER * 1000 + INTRO_GLOW
+    );
   };
 
   const logout = () => {
     setEntered(false);
+    setIntro(false);
     close();
   };
 
@@ -64,7 +76,7 @@ export function Scene() {
           }`}
         />
 
-        {SPOTS.map((s) => {
+        {SPOTS.map((s, i) => {
           const isPhone = s.id === "phone";
           // 로그인 전엔 핸드폰만, 로그인 후엔 전부. 화면 열림(active) 중엔 잠금.
           const enabled = (entered ? true : isPhone) && !active;
@@ -74,6 +86,7 @@ export function Scene() {
               spot={s}
               disabled={!enabled}
               highlight={isPhone && !entered && !active}
+              introDelay={intro ? i * INTRO_STAGGER : null}
               onSelect={select}
             />
           );
