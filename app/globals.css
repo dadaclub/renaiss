@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Gochi+Hand&family=Noto+Serif+KR:wght@500;600&display=swap");
+
+body {
+  @apply bg-bg text-cream font-sans overflow-hidden;
+}
+
+/* 로그인 인트로 — 울리는 핸드폰 흔들림 */
+@keyframes ring-shake {
+  0%, 100% { transform: rotate(0deg); }
+  15% { transform: rotate(-5deg); }
+  30% { transform: rotate(5deg); }
+  45% { transform: rotate(-4deg); }
+  60% { transform: rotate(4deg); }
+  75% { transform: rotate(-2deg); }
+}
+.animate-ring {
+  animation: ring-shake 0.85s ease-in-out infinite;
+  transform-origin: 50% 88%;
+}
