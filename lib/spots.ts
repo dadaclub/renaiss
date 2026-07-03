@@ -1,4 +1,4 @@
-/** 핫스팟 좌표 설정 — 이미지(room2.webp, 1080x462) 기준 %. 좌표 수정은 이 파일에서만. */
+/** 핫스팟 좌표 설정 — 이미지(room3.png, 정사각) 기준 %. 좌표 수정은 이 파일에서만. */
 export type SpotId = "cabinet" | "computer" | "window" | "phone" | "photo" | "album" | "note";
 
 export interface Spot {
