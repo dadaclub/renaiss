@@ -4,7 +4,7 @@ const config: Config = {
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
   theme: {
     extend: {
-      /** 네온 퍼플 테마 (room2.webp) — 토큰명은 웜톤 시절 이름을 유지 (amber = 메인 액센트) */
+      /** 네온 퍼플 테마 — 토큰명은 웜톤 시절 이름을 유지 (amber = 메인 액센트) */
       colors: {
         bg: "#07070F",
         glass: "rgba(22,20,40,0.86)",
