@@ -34,6 +34,7 @@
 | 카메라 줌 (폰 로그인 연출) | transform 0.85s `ease-camera` = cubic-bezier(0.32, 0.72, 0.25, 1) |
 | 입장 연출 (방 확대) | transform 1.8s `ease-entrance` = cubic-bezier(0.22, 0.8, 0.2, 1), scale 0.72 → 1 |
 | 패널 등장/퇴장 | opacity + translate 0.45s |
+| 핫스팟 호버 팝 | 클립 복제 scale 1 → 1.05 + opacity, 0.2s |
 | 핫스팟 글로우 | opacity 0.3s (hover 시) |
 | 울리는 핸드폰 | `animate-ring` (ring-shake 0.85s infinite, globals.css) |
 | 입장 온보딩 (핫스팟 순차 반짝) | `animate-glow-once` 0.9s + 스팟당 0.18s 스태거, 방 밝아진 0.9s 뒤 시작 |
@@ -45,7 +46,7 @@
 - **Chip(정렬 등)**: pill(radius 999px), 액티브 시 amber 배경 + inkdark 텍스트
 - **Eyebrow**: 섹션 라벨. 위 아이브로우 규칙 그대로
 - **CardListItem**: 썸네일 38×52 + 이름/등급 + 가격/등락(up/down 컬러). 호버 시 translateX(3px) + amber/10 배경
-- **핫스팟**: 호버 시 cream 라디얼 글로우(mix-blend-screen)로 가구 자체가 밝아짐. 로그인 전 핸드폰은 pulse 상시 발광
+- **핫스팟**: 호버/포커스 시 해당 영역 클립 복제가 **5% 확대**(가구 팝) + cream 라디얼 글로우(mix-blend-screen, 어두운 아트에서만 효과). 로그인 전 핸드폰은 폰 불빛처럼 **작고 부드러운**(blur + 60%에서 소멸) pulse 발광
 
 ## 금지
 - 순수 화이트(#FFF) 배경

@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
-import { SPOTS, Spot, SpotId } from "@/lib/spots";
+import { SPOTS, Spot, SpotId, ROOM_IMG } from "@/lib/spots";
 import { Hotspot } from "./Hotspot";
 import { LoginIntro } from "./LoginIntro";
 import { ObjectScreen } from "./ObjectScreen";
@@ -67,7 +67,7 @@ export function Scene() {
         className="relative shrink-0 w-[min(100vw,100vh)] aspect-square ease-camera"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/room3.png" alt="My room (sketch)" className="block w-full h-full select-none" draggable={false} />
+        <img src={ROOM_IMG} alt="My room (sketch)" className="block w-full h-full select-none" draggable={false} />
 
         {/* 로그인 전: 방 전체 어둡게 (핸드폰만 빛남) */}
         <div
