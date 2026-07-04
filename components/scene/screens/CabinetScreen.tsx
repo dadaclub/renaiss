@@ -37,10 +37,45 @@ interface ShelfCard {
   certNumber?: string; // 실물 카드(PSA)만
 }
 
-/** 온체인 보유 카드 조회. TODO(A): lib/api/bscscan.getNftHoldings(wallet) 연동 후 교체 */
+/** 온체인 보유 카드 조회.
+ *  1차: Renaiss 공개 API(/api/showcase 프록시)에서 실카드+이미지 로드 (데모: 마켓 상위 8장)
+ *  폴백: 오프라인/장애 시 MOCK_CARDS
+ *  TODO(A): bscscan으로 지갑 보유 tokenId 확보 → /api/showcase?ids= 로 교체 */
 async function fetchOnchainCards(wallet: string): Promise<ShelfCard[]> {
-  await new Promise((r) => setTimeout(r, 900)); // 목 레이턴시
   void wallet;
+  try {
+    const res = await fetch("/api/showcase");
+    if (res.ok) {
+      const { cards } = (await res.json()) as {
+        cards: {
+          tokenId: string;
+          name: string;
+          grade: string;
+          franchise: string;
+          priceUsd?: number;
+          acquiredAt?: string;
+          imageUrl?: string;
+        }[];
+      };
+      if (cards.length > 0) {
+        return cards.map((c, i) => ({
+          id: c.tokenId,
+          name: c.name,
+          grade: c.grade,
+          franchise: c.franchise,
+          emoji: "🎴",
+          tint: TINTS[i % TINTS.length],
+          imageUrl: c.imageUrl,
+          priceUsd: c.priceUsd,
+          acquiredAt: c.acquiredAt ?? "",
+          origin: "onchain" as const,
+        }));
+      }
+    }
+  } catch {
+    // 폴백으로 진행
+  }
+  await new Promise((r) => setTimeout(r, 600)); // 목 레이턴시
   return MOCK_CARDS.map((c) => ({
     id: c.id,
     name: c.name,
@@ -408,7 +443,7 @@ function CardDetail({
         <div className="text-center">
           <div className="text-cream font-bold text-lg">{card.name}</div>
           <div className="text-[12px] text-creamdim font-semibold mt-0.5">
-            {card.grade} · {card.franchise} · {card.acquiredAt}
+            {card.grade} · {card.franchise} · {card.acquiredAt || "—"}
           </div>
           <div className="text-[11px] font-bold mt-1.5">
             <span className="px-2 py-0.5 rounded-full bg-ambersoft text-amber">
