@@ -494,8 +494,9 @@ function CardDetail({
  * 최종 진열장 아트가 나오면 아래 컴포넌트만 교체.
  * 카드 클릭 콜백/데이터 계약은 그대로 유지할 것. */
 
-const SHELF_SIZE = 4; // 선반 한 단에 놓이는 카드 수 (넘치면 가로 스크롤)
-const CARD_W = "w-[160px]"; // 카드 고정 폭 — 선반이 화면보다 넓어지면 좌우 스크롤
+const SHELF_SIZE = 6; // 선반 한 단에 놓이는 카드 수 (넘치면 가로 스크롤)
+// 카드 폭 — 화면 폭에 따라 96~140px 자동 조절 (좁은 창에서도 한 단이 들어가게)
+const CARD_W = "w-[clamp(96px,11vw,140px)]";
 
 /** 월 레지 선반 여러 단 — 얇은 선반 턱 위에 카드가 정면으로 빽빽하게 서 있음.
  *  레퍼런스: 카드샵 월 디스플레이 + 투명 쇼케이스.
@@ -520,7 +521,7 @@ function Shelves({
         {rows.map((row, r) => (
           <div key={r}>
             {/* 카드들 — 선반 턱 위에 정면으로 서 있음 */}
-            <div className="flex items-end justify-center gap-5 px-6">
+            <div className="flex items-end justify-center gap-3 px-5">
               {row.map((card, i) =>
                 card && !skeleton ? (
                   <button
@@ -569,7 +570,7 @@ function GradedSlab({ card, large = false }: { card: ShelfCard; large?: boolean 
         alt={card.name}
         title={`${card.name} · ${card.grade}`}
         draggable={false}
-        className="w-full aspect-[5/7] object-contain object-bottom select-none drop-shadow-[0_8px_20px_rgba(0,0,0,0.55)]"
+        className="w-full aspect-[3/5] object-contain object-bottom select-none drop-shadow-[0_8px_20px_rgba(0,0,0,0.55)]"
       />
     );
   }
