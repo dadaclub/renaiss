@@ -50,12 +50,19 @@ export function Hotspot({ spot, disabled, highlight, introDelay = null, pop = fa
           style={{ animationDelay: `${introDelay}s` }}
         />
       )}
-      {/* 상시 강조 — 어두운 방에서 폰 화면 불빛처럼 작고 부드럽게 맥동 */}
+      {/* 상시 강조 — 어둠 속에서 실제로 켜진 핸드폰처럼.
+          ① 화면 빛이 바닥으로 번지는 블룸(차가운 흰-푸른 빛), ② 켜진 화면 사각형 자체 */}
       {highlight && (
-        <span
-          aria-hidden
-          className="absolute inset-0 rounded-[inherit] mix-blend-screen bg-[radial-gradient(ellipse_at_center,theme(colors.cream/90%)_0%,theme(colors.amber/35%)_30%,transparent_55%)] blur-[10px] animate-pulse pointer-events-none"
-        />
+        <>
+          <span
+            aria-hidden
+            className="absolute left-1/2 top-1/2 w-[300%] h-[250%] rounded-full mix-blend-screen blur-[16px] animate-phone-bloom pointer-events-none motion-reduce:animate-none bg-[radial-gradient(ellipse_at_center,rgba(206,224,255,0.5),rgba(150,185,255,0.22)_38%,transparent_70%)]"
+          />
+          <span
+            aria-hidden
+            className="absolute inset-[16%] rounded-[4px] mix-blend-screen blur-[1.5px] animate-phone-screen pointer-events-none motion-reduce:animate-none bg-[linear-gradient(155deg,rgba(242,248,255,0.96),rgba(194,216,255,0.78))]"
+          />
+        </>
       )}
     </button>
   );

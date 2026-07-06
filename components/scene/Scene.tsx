@@ -164,8 +164,8 @@ export function Scene() {
           })()}
       </div>
 
-      {/* 로그인 폼 (핸드폰 줌인 상태) */}
-      {!entered && active === "phone" && <LoginIntro onLogin={login} />}
+      {/* 로그인 폼 (핸드폰 줌인 상태) — 열면 바로 Authorize, Cancel은 방으로 */}
+      {!entered && active === "phone" && <LoginIntro onLogin={login} onCancel={close} />}
 
       {/* 오브젝트 새 화면 (로그인 후) */}
       {entered && active && <ObjectScreen spot={active} onClose={close} onLogout={logout} />}

@@ -5,15 +5,15 @@ import { useState } from "react";
  * 로그인 — 방 안 핸드폰에 줌인된 뒤 그 위로 뜬다.
  * 르네시스 아이디/비번을 따로 만드는 게 아니라, 구글·네이버 연동처럼
  * "이미 있는 르네시스 계정을 연결"하는 소셜 로그인 형태(겉모습만, 실제 연동 아님 — 목).
- * 연결 승인하면 onLogin() → 줌아웃 + 방이 밝아짐.
+ * 단계 축약: 열면 바로 연동 동의(Authorize) → 승인하면 연결 연출 후 onLogin().
  */
-type Step = "idle" | "consent" | "connecting";
+type Step = "consent" | "connecting";
 
-// 연동된 것처럼 보이게 하는 목 계정 표기 (실데이터 아님)
-const MOCK_ACCOUNT = "0x7F3a…9c2B";
+// 연동된 것처럼 보이게 하는 목 계정 표기 (실데이터 아님). 로그아웃 화면과 공유.
+export const MOCK_ACCOUNT = "0x7F3a…9c2B";
 
-export function LoginIntro({ onLogin }: { onLogin: () => void }) {
-  const [step, setStep] = useState<Step>("idle");
+export function LoginIntro({ onLogin, onCancel }: { onLogin: () => void; onCancel: () => void }) {
+  const [step, setStep] = useState<Step>("consent");
 
   const authorize = () => {
     setStep("connecting");
@@ -44,29 +44,11 @@ export function LoginIntro({ onLogin }: { onLogin: () => void }) {
           </div>
           <div className="text-[10px] tracking-[0.32em] text-amber font-bold uppercase">Renaiss</div>
           <div className="text-cream font-serif text-2xl mt-1">
-            {step === "consent" ? "Authorize" : "Log in"}
+            {step === "connecting" ? "Log in" : "Authorize"}
           </div>
         </div>
 
-        {/* 1) 시작: 소셜 로그인 버튼 */}
-        {step === "idle" && (
-          <div className="flex flex-col gap-3">
-            <button
-              autoFocus
-              onClick={() => setStep("consent")}
-              className="flex items-center justify-center bg-cream text-inkdark font-bold rounded-xl py-3 text-sm hover:brightness-95 active:brightness-90 transition"
-            >
-              Continue with Renaiss
-            </button>
-            <p className="text-[11px] leading-relaxed text-creamdim/70 text-center px-1">
-              Connect your existing Renaiss account.
-              <br />
-              No separate ID or password needed.
-            </p>
-          </div>
-        )}
-
-        {/* 2) 연동 동의(목 OAuth 화면) */}
+        {/* 연동 동의(목 OAuth 화면) */}
         {step === "consent" && (
           <div className="flex flex-col gap-4">
             <p className="text-xs text-creamdim text-center">
@@ -74,12 +56,12 @@ export function LoginIntro({ onLogin }: { onLogin: () => void }) {
               Renaiss account
             </p>
 
-            {/* 연동될 계정 (목) */}
-            <div className="flex items-center gap-2.5 bg-cream/[0.05] border border-glassline rounded-xl px-3 py-2.5">
+            {/* 연동될 계정 (목) — 가운데 정렬 */}
+            <div className="flex items-center justify-center gap-2.5 bg-cream/[0.05] border border-glassline rounded-xl px-3 py-2.5 text-center">
               {RenaissMark}
-              <div className="min-w-0">
-                <div className="text-cream text-sm font-medium truncate">Renaiss account</div>
-                <div className="text-creamdim/70 text-[11px] font-mono truncate">{MOCK_ACCOUNT}</div>
+              <div>
+                <div className="text-cream text-sm font-medium">Renaiss account</div>
+                <div className="text-creamdim/70 text-[11px] font-mono">{MOCK_ACCOUNT}</div>
               </div>
             </div>
 
@@ -98,7 +80,7 @@ export function LoginIntro({ onLogin }: { onLogin: () => void }) {
 
             <div className="flex gap-2 mt-1">
               <button
-                onClick={() => setStep("idle")}
+                onClick={onCancel}
                 className="flex-1 border border-glassline text-creamdim rounded-xl py-2.5 text-sm hover:bg-cream/5 transition"
               >
                 Cancel
@@ -114,7 +96,7 @@ export function LoginIntro({ onLogin }: { onLogin: () => void }) {
           </div>
         )}
 
-        {/* 3) 연결 중 */}
+        {/* 연결 중 */}
         {step === "connecting" && (
           <div className="flex flex-col items-center gap-3 py-4">
             <span className="w-8 h-8 rounded-full border-2 border-amber/30 border-t-amber animate-spin motion-reduce:animate-none" />

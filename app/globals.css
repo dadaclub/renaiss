@@ -40,3 +40,20 @@ body {
 .animate-glow-once {
   animation: glow-once 0.9s ease-in-out both;
 }
+
+/* 로그인 전 — 어둠 속에서 켜진 핸드폰 화면 불빛.
+   화면(사각형)은 은은히 밝기만 변하고, 주변 블룸은 살짝 숨쉬듯 커졌다 작아진다. */
+@keyframes phone-screen {
+  0%, 100% { opacity: 0.82; }
+  50% { opacity: 1; }
+}
+.animate-phone-screen {
+  animation: phone-screen 3.4s ease-in-out infinite;
+}
+@keyframes phone-bloom {
+  0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(0.96); }
+  50% { opacity: 0.82; transform: translate(-50%, -50%) scale(1.05); }
+}
+.animate-phone-bloom {
+  animation: phone-bloom 3.4s ease-in-out infinite;
+}
