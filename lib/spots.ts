@@ -40,5 +40,12 @@ export const SPOTS: Spot[] = [
 
 export const IMG_ASPECT = 1;
 
+/**
+ * 로그인 전, 어둠 속에서 켜진 핸드폰 화면 불빛의 위치·크기·기울기 (방 이미지 대비 %).
+ * 핸드폰은 그림상 열린 플립폰이라, 클릭영역(phone.area)과 별개로 위쪽 디스플레이에 맞춘다.
+ * rotate: 폰이 살짝 기울어 있어 그만큼 화면 사각형을 회전(도, 시계방향 +).
+ */
+export const PHONE_GLOW = { left: 50.7, top: 74.4, width: 3.5, height: 6.4, rotate: 17 };
+
 /** 방 씬 이미지 경로 — Scene(배경)과 Hotspot(호버 팝 복제)이 공유 */
 export const ROOM_IMG = "/room4.png";

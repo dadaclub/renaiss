@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { SPOTS, Spot, SpotId, ROOM_IMG } from "@/lib/spots";
+import { SPOTS, Spot, SpotId, ROOM_IMG, PHONE_GLOW } from "@/lib/spots";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 import { Hotspot } from "./Hotspot";
 import { LoginIntro } from "./LoginIntro";
@@ -126,6 +126,27 @@ export function Scene() {
           }`}
         />
 
+        {/* 로그인 전 — 어둠 속에서 켜진 핸드폰 화면 불빛 (클릭영역과 별개, PHONE_GLOW 좌표).
+            ① 화면 사각형(폰 기울기만큼 회전) ② 그 빛이 바닥으로 번지는 블룸 */}
+        {!entered && !edit && (
+          <div
+            aria-hidden
+            className="absolute pointer-events-none"
+            style={{
+              left: `${PHONE_GLOW.left}%`,
+              top: `${PHONE_GLOW.top}%`,
+              width: `${PHONE_GLOW.width}%`,
+              height: `${PHONE_GLOW.height}%`,
+            }}
+          >
+            <span className="absolute left-1/2 top-1/2 w-[360%] h-[170%] rounded-full mix-blend-screen blur-[13px] animate-phone-bloom motion-reduce:animate-none bg-[radial-gradient(ellipse_at_center,rgba(206,224,255,0.5),rgba(150,185,255,0.22)_38%,transparent_70%)]" />
+            <span
+              className="absolute inset-0 rounded-[2px] mix-blend-screen blur-[1px] animate-phone-screen motion-reduce:animate-none bg-[linear-gradient(155deg,rgba(242,248,255,0.96),rgba(194,216,255,0.78))]"
+              style={{ transform: `rotate(${PHONE_GLOW.rotate}deg)` }}
+            />
+          </div>
+        )}
+
         {SPOTS.map((s, i) => {
           const isPhone = s.id === "phone";
           // 로그인 전엔 핸드폰만, 로그인 후엔 전부. 화면 열림(active) 중엔 잠금.
@@ -135,7 +156,6 @@ export function Scene() {
               key={s.id}
               spot={s}
               disabled={!enabled}
-              highlight={isPhone && !entered && !active}
               introDelay={intro ? i * INTRO_STAGGER : null}
               // 오버레이 사진이 있는 스팟(액자)은 빈 프레임 복제 팝이 사진을 덮으므로 끔
               pop={entered && !s.overlay}

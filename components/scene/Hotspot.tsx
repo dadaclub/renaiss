@@ -4,8 +4,6 @@ import { Spot, ROOM_IMG } from "@/lib/spots";
 interface Props {
   spot: Spot;
   disabled: boolean;
-  /** 상시 발광 (예: 로그인 전 울리는 핸드폰) */
-  highlight?: boolean;
   /** 입장 온보딩 — 초 단위 딜레이. null이 아니면 한 번 반짝이고 사라짐 */
   introDelay?: number | null;
   /** 호버 팝(5% 확대) 활성화 — 로그인 후에만 (어두운 방에선 복제본이 밝게 떠서 분위기 깨짐) */
@@ -13,7 +11,7 @@ interface Props {
   onSelect: (spot: Spot) => void;
 }
 
-export function Hotspot({ spot, disabled, highlight, introDelay = null, pop = false, onSelect }: Props) {
+export function Hotspot({ spot, disabled, introDelay = null, pop = false, onSelect }: Props) {
   const { left, top, width, height } = spot.area;
   return (
     <button
@@ -50,20 +48,8 @@ export function Hotspot({ spot, disabled, highlight, introDelay = null, pop = fa
           style={{ animationDelay: `${introDelay}s` }}
         />
       )}
-      {/* 상시 강조 — 어둠 속에서 실제로 켜진 핸드폰처럼.
-          ① 화면 빛이 바닥으로 번지는 블룸(차가운 흰-푸른 빛), ② 켜진 화면 사각형 자체 */}
-      {highlight && (
-        <>
-          <span
-            aria-hidden
-            className="absolute left-1/2 top-1/2 w-[300%] h-[250%] rounded-full mix-blend-screen blur-[16px] animate-phone-bloom pointer-events-none motion-reduce:animate-none bg-[radial-gradient(ellipse_at_center,rgba(206,224,255,0.5),rgba(150,185,255,0.22)_38%,transparent_70%)]"
-          />
-          <span
-            aria-hidden
-            className="absolute inset-[16%] rounded-[4px] mix-blend-screen blur-[1.5px] animate-phone-screen pointer-events-none motion-reduce:animate-none bg-[linear-gradient(155deg,rgba(242,248,255,0.96),rgba(194,216,255,0.78))]"
-          />
-        </>
-      )}
+      {/* 폰 화면 불빛은 클릭영역과 별개라 Scene에서 PHONE_GLOW 좌표로 렌더한다.
+          (highlight는 폰 스팟 식별용으로만 유지 — 여기선 시각효과 없음) */}
     </button>
   );
 }
