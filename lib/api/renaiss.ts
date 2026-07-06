@@ -58,3 +58,28 @@ export async function getCardDetail(tokenId: string): Promise<RenaissCardDetail>
   const data = (await res.json()) as { collectible: RenaissCardDetail };
   return data.collectible;
 }
+
+/** SBT 뱃지 — 공개 프로필의 favoritedSBTs (유저가 전시용으로 고른 온체인 업적 뱃지) */
+export interface RenaissSbt {
+  id: number;
+  title: string;
+  description: string;
+  imageUrl: string;
+}
+
+export interface RenaissUserProfile {
+  id: string;
+  username: string;
+  avatarUrl: string;
+  favoritedSBTs: RenaissSbt[];
+}
+
+/** 공개 유저 프로필 조회 (GET /v0/users/{id}) — SBT 뱃지 + 프로필 정보 반환. id = username 또는 uuid */
+export async function getUserProfile(id: string): Promise<RenaissUserProfile> {
+  const res = await fetch(`${BASE}/v0/users/${encodeURIComponent(id)}`, {
+    next: { revalidate: 300 },
+  });
+  if (!res.ok) throw new Error(`Renaiss API ${res.status}`);
+  const data = (await res.json()) as RenaissUserProfile;
+  return { ...data, favoritedSBTs: data.favoritedSBTs ?? [] };
+}
