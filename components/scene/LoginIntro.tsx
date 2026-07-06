@@ -14,7 +14,12 @@ export function LoginIntro({ onLogin }: { onLogin: () => void }) {
     "w-full bg-cream/[0.06] border border-glassline rounded-xl px-3 py-2.5 text-sm text-cream placeholder:text-creamdim/60 outline-none focus:border-amber transition-colors";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(4,3,10,0.4)] backdrop-blur-[2px]">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Log in"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(4,3,10,0.4)] backdrop-blur-[2px]"
+    >
       <div className="w-[300px] rounded-[2rem] bg-[#0e0b1a] border border-glassline shadow-[0_20px_60px_rgba(0,0,0,0.6)] p-6">
         <div className="text-center mb-4">
           <div className="w-16 h-16 mx-auto rounded-full bg-white border border-amber/40 overflow-hidden mb-3 flex items-center justify-center">
@@ -22,7 +27,7 @@ export function LoginIntro({ onLogin }: { onLogin: () => void }) {
             <img src="/brand/renaiss-logo.jpg" alt="Renaiss" className="w-full h-full object-contain p-1.5" />
           </div>
           <div className="text-[10px] tracking-[0.32em] text-amber font-bold uppercase">Renaiss Wallet</div>
-          <div className="text-cream font-hand text-2xl mt-1">Log in</div>
+          <div className="text-cream font-serif text-2xl mt-1">Log in</div>
         </div>
         <form
           onSubmit={(e) => {

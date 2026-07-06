@@ -8,6 +8,16 @@ body {
   @apply bg-bg text-cream font-sans overflow-hidden;
 }
 
+/* 방 배경 앰비언트 그라디언트 — Scene(방)과 ScreenShell(오브젝트 화면)이 공유 */
+.bg-room-ambient {
+  background: radial-gradient(ellipse 75% 75% at 50% 45%, #1a1233, #0a0716 62%, #050409);
+}
+
+/* 방 오브젝트(핫스팟) 위 커서 — 르네 포켓볼 아이콘 (로드 실패 시 pointer로 폴백) */
+.hotspot-cursor:enabled {
+  cursor: url("/mouse_cursor_v2_48.png") 24 24, pointer;
+}
+
 /* 로그인 인트로 — 울리는 핸드폰 흔들림 */
 @keyframes ring-shake {
   0%, 100% { transform: rotate(0deg); }
