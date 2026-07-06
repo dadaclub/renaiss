@@ -15,7 +15,7 @@ body {
 
 /* 방 오브젝트(핫스팟) 위 커서 — 르네 포켓볼 아이콘 (로드 실패 시 pointer로 폴백) */
 .hotspot-cursor:enabled {
-  cursor: url("/mouse_cursor_v1_48.png") 24 24, pointer;
+  cursor: url("/mouse_cursor_v2_48.png") 24 24, pointer;
 }
 
 /* 로그인 인트로 — 울리는 핸드폰 흔들림 */
