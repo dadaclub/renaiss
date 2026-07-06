@@ -557,9 +557,22 @@ function Shelves({
   );
 }
 
-/** PSA 스타일 등급 슬랩 — 라벨(이름+등급) + 카드 아트.
- *  imageUrl 있으면 실카드 이미지, 없으면 emoji+tint 플레이스홀더 */
+/** PSA 스타일 등급 슬랩.
+ *  - imageUrl 있음: 실카드 사진 자체가 이미 슬랩(케이스+라벨) — 프레임 없이 그대로, 칸을 꽉 채움
+ *  - imageUrl 없음: emoji+tint 플레이스홀더를 자체 케이스+라벨로 감쌈 */
 function GradedSlab({ card, large = false }: { card: ShelfCard; large?: boolean }) {
+  if (card.imageUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={card.imageUrl}
+        alt={card.name}
+        title={`${card.name} · ${card.grade}`}
+        draggable={false}
+        className="w-full aspect-[5/7] object-contain object-bottom select-none drop-shadow-[0_8px_20px_rgba(0,0,0,0.55)]"
+      />
+    );
+  }
   return (
     <div className="relative rounded-[10px] border border-cream/25 bg-gradient-to-b from-cream/[0.10] to-cream/[0.03] p-[5%] shadow-[inset_0_1px_0_theme(colors.cream/20%),0_6px_18px_rgba(0,0,0,0.45)]">
       {/* 라벨 */}
@@ -573,17 +586,12 @@ function GradedSlab({ card, large = false }: { card: ShelfCard; large?: boolean 
           {card.grade}
         </span>
       </div>
-      {/* 카드 아트 */}
+      {/* 카드 아트 (플레이스홀더) */}
       <div
         className="aspect-[5/7] rounded-[6px] overflow-hidden border border-cream/10 flex items-center justify-center"
-        style={card.imageUrl ? undefined : { background: card.tint }}
+        style={{ background: card.tint }}
       >
-        {card.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={card.imageUrl} alt={card.name} className="w-full h-full object-cover" draggable={false} />
-        ) : (
-          <span className={large ? "text-6xl" : "text-3xl"}>{card.emoji}</span>
-        )}
+        <span className={large ? "text-6xl" : "text-3xl"}>{card.emoji}</span>
       </div>
       {/* 케이스 사선 광택 */}
       <span
