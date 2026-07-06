@@ -90,11 +90,27 @@ async function fetchOnchainCards(wallet: string): Promise<ShelfCard[]> {
   }));
 }
 
-/** PSA 인증번호 조회. TODO(B): lib/api/psa.getCertByNumber 연동 후 교체 */
+/** PSA 인증번호 조회.
+ *  1차: /api/psa/{cert} (실제 PSA Public API — PSA_API_TOKEN 설정 시 동작, 이미지 포함)
+ *  폴백: 토큰 미설정/오프라인이면 데모용 목 결과 */
 async function lookupCert(
   certNumber: string
 ): Promise<{ name: string; grade: string; franchise: string; imageUrl?: string }> {
-  await new Promise((r) => setTimeout(r, 700));
+  try {
+    const res = await fetch(`/api/psa/${encodeURIComponent(certNumber)}`);
+    if (res.ok) {
+      const d = (await res.json()) as {
+        name: string;
+        grade: string;
+        franchise: string;
+        imageUrl?: string;
+      };
+      if (d.name) return d;
+    }
+  } catch {
+    // 폴백으로 진행
+  }
+  await new Promise((r) => setTimeout(r, 500));
   // 목: 번호 끝자리로 그럴듯한 결과 생성
   const last = certNumber.charCodeAt(certNumber.length - 1) % 3;
   const pool = [
