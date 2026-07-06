@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import { SPOTS, Spot, SpotId, ROOM_IMG } from "@/lib/spots";
+import { useEscapeToClose } from "@/lib/useEscapeToClose";
 import { Hotspot } from "./Hotspot";
 import { LoginIntro } from "./LoginIntro";
 import { ObjectScreen } from "./ObjectScreen";
@@ -8,7 +9,8 @@ import { ObjectScreen } from "./ObjectScreen";
 /**
  * 방 씬.
  * - 진입: 방은 어둡고 핸드폰만 빛남 → 핸드폰 줌인 → 로그인 → 방 밝아짐
- * - 로그인 후: 오브젝트 클릭 → 새 전체화면(ObjectScreen). 카메라 줌 없음.
+ * - 로그인 후: 오브젝트 클릭 → 방 위에 새 화면(ObjectScreen)이 뜸. 방 자체는 확대 안 함
+ *   (참고 구조: 방=배경판+가구 스티커 / 오브젝트 화면=또 다른 배경판+개별 물체 스티커).
  * - 핸드폰(로그인 후): 로그아웃 화면.
  */
 export function Scene() {
@@ -23,8 +25,13 @@ export function Scene() {
   const INTRO_GLOW = 900; // glow-once 애니메이션 길이(ms)
 
   const select = (spot: Spot) => {
+    // 외부 링크 스팟(예: 피규어 → 르네 트위터): 화면을 열지 않고 새 탭으로 이동
+    if (spot.href) {
+      window.open(spot.href, "_blank", "noopener,noreferrer");
+      return;
+    }
     if (spot.id === "phone" && !entered) {
-      // 로그인 연출: 핸드폰으로 줌인
+      // 로그인 연출: 핸드폰으로 줌인 (이것만 카메라 이동. 나머지는 새 화면을 위에 띄움)
       const el = sceneRef.current;
       if (el) {
         const { cx, cy, scale } = spot.zoom;
@@ -58,8 +65,11 @@ export function Scene() {
     close();
   };
 
+  // Esc로 현재 화면 닫고 방으로 돌아가기 (로그인 폼이든 오브젝트 화면이든)
+  useEscapeToClose(close, active !== null);
+
   return (
-    <main className="fixed inset-0 overflow-hidden flex items-center justify-center bg-[radial-gradient(ellipse_75%_75%_at_50%_45%,#1a1233,#0a0716_62%,#050409)]">
+    <main className="fixed inset-0 overflow-hidden flex items-center justify-center bg-room-ambient">
       {/* scene */}
       <div
         ref={sceneRef}

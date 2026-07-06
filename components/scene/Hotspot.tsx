@@ -21,7 +21,7 @@ export function Hotspot({ spot, disabled, highlight, introDelay = null, pop = fa
       disabled={disabled}
       aria-label={spot.label}
       style={{ left: `${left}%`, top: `${top}%`, width: `${width}%`, height: `${height}%` }}
-      className="group absolute rounded-[14px] enabled:cursor-pointer disabled:pointer-events-none"
+      className="hotspot-cursor group absolute rounded-[14px] disabled:pointer-events-none"
     >
       {/* 호버 팝 — 방 이미지에서 이 영역만 잘라낸 복제본을 5% 확대 (가구가 살짝 커지는 효과).
           가장자리는 라디얼 마스크로 페더링해 사각형 티를 없앰 */}

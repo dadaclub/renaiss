@@ -1,8 +1,9 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ROOM_IMG } from "@/lib/spots";
 import { Chip } from "@/components/ui/Chip";
 import { MOCK_CARDS, fmtUsd } from "@/lib/mockCards";
+import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
 /**
  * 카드 진열장 화면.
@@ -39,9 +40,11 @@ interface ShelfCard {
 
 /** 온체인 보유 카드 조회.
  *  1차: Renaiss 공개 API(/api/showcase 프록시)에서 실카드+이미지 로드 (데모: 마켓 상위 8장)
- *  폴백: 오프라인/장애 시 MOCK_CARDS
+ *  폴백: 오프라인/장애 시 MOCK_CARDS — 이때 fromFallback=true를 같이 반환해 UI가 알림을 띄울 수 있게 함
  *  TODO(A): bscscan으로 지갑 보유 tokenId 확보 → /api/showcase?ids= 로 교체 */
-async function fetchOnchainCards(wallet: string): Promise<ShelfCard[]> {
+async function fetchOnchainCards(
+  wallet: string
+): Promise<{ cards: ShelfCard[]; fromFallback: boolean }> {
   void wallet;
   try {
     const res = await fetch("/api/showcase");
@@ -58,44 +61,54 @@ async function fetchOnchainCards(wallet: string): Promise<ShelfCard[]> {
         }[];
       };
       if (cards.length > 0) {
-        return cards.map((c, i) => ({
-          id: c.tokenId,
-          name: c.name,
-          grade: c.grade,
-          franchise: c.franchise,
-          emoji: "🎴",
-          tint: TINTS[i % TINTS.length],
-          imageUrl: c.imageUrl,
-          priceUsd: c.priceUsd,
-          acquiredAt: c.acquiredAt ?? "",
-          origin: "onchain" as const,
-        }));
+        return {
+          fromFallback: false,
+          cards: cards.map((c, i) => ({
+            id: c.tokenId,
+            name: c.name,
+            grade: c.grade,
+            franchise: c.franchise,
+            emoji: "🎴",
+            tint: TINTS[i % TINTS.length],
+            imageUrl: c.imageUrl,
+            priceUsd: c.priceUsd,
+            acquiredAt: c.acquiredAt ?? "",
+            origin: "onchain" as const,
+          })),
+        };
       }
     }
   } catch {
     // 폴백으로 진행
   }
   await new Promise((r) => setTimeout(r, 600)); // 목 레이턴시
-  return MOCK_CARDS.map((c) => ({
-    id: c.id,
-    name: c.name,
-    grade: c.grade,
-    franchise: c.franchise,
-    emoji: c.emoji,
-    tint: c.tint,
-    priceUsd: c.priceUsd,
-    delta30d: c.delta30d,
-    acquiredAt: c.acquiredAt,
-    origin: "onchain" as const,
-  }));
+  return {
+    fromFallback: true,
+    cards: MOCK_CARDS.map((c) => ({
+      id: c.id,
+      name: c.name,
+      grade: c.grade,
+      franchise: c.franchise,
+      emoji: c.emoji,
+      tint: c.tint,
+      priceUsd: c.priceUsd,
+      delta30d: c.delta30d,
+      acquiredAt: c.acquiredAt,
+      origin: "onchain" as const,
+    })),
+  };
 }
 
 /** PSA 인증번호 조회.
  *  1차: /api/psa/{cert} (실제 PSA Public API — PSA_API_TOKEN 설정 시 동작, 이미지 포함)
- *  폴백: 토큰 미설정/오프라인이면 데모용 목 결과 */
-async function lookupCert(
-  certNumber: string
-): Promise<{ name: string; grade: string; franchise: string; imageUrl?: string }> {
+ *  폴백: 토큰 미설정/오프라인이면 데모용 목 결과 — fromFallback=true로 표시해 UI가 사용자에게 알림 */
+async function lookupCert(certNumber: string): Promise<{
+  name: string;
+  grade: string;
+  franchise: string;
+  imageUrl?: string;
+  fromFallback: boolean;
+}> {
   try {
     const res = await fetch(`/api/psa/${encodeURIComponent(certNumber)}`);
     if (res.ok) {
@@ -105,7 +118,7 @@ async function lookupCert(
         franchise: string;
         imageUrl?: string;
       };
-      if (d.name) return d;
+      if (d.name) return { ...d, fromFallback: false };
     }
   } catch {
     // 폴백으로 진행
@@ -118,7 +131,7 @@ async function lookupCert(
     { name: "Shanks Alt Art", grade: "PSA 10", franchise: "One Piece" },
     { name: "Umbreon VMAX Alt", grade: "PSA 10", franchise: "Pokémon" },
   ];
-  return pool[last];
+  return { ...pool[last], fromFallback: true };
 }
 
 const TINTS = ["#38284A", "#22314A", "#1E3A38", "#46341E", "#1F3D2C"];
@@ -165,6 +178,7 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
   const [cards, setCards] = useState<ShelfCard[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [synced, setSynced] = useState(false);
+  const [syncError, setSyncError] = useState(false); // 실시간 동기화 실패 → 목데이터로 대체됨
   const [sort, setSort] = useState<SortKey>("newest");
   const [modal, setModal] = useState<ModalState>(null);
   const [selected, setSelected] = useState<ShelfCard | null>(null);
@@ -177,10 +191,11 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
 
   async function syncWallet() {
     setSyncing(true);
-    const onchain = await fetchOnchainCards("0xMOCK");
+    const { cards: onchain, fromFallback } = await fetchOnchainCards("0xMOCK");
     setCards((prev) => [...onchain, ...prev.filter((c) => c.origin === "physical")]);
     setSyncing(false);
     setSynced(true);
+    setSyncError(fromFallback);
   }
 
   function addPhysical(card: PhysicalInput) {
@@ -233,17 +248,14 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
           shown ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
         }`}
       >
-        {/* 상단 — 작은 타이틀 + 떠 있는 컨트롤 (박스 없음) */}
+        {/* 상단 — 떠 있는 컨트롤 (타이틀 없음) */}
         <div className="shrink-0 flex flex-col items-center gap-3 pt-6 pb-2 px-6">
-          <h2 className="font-hand text-[32px] text-cream text-center drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]">
-            Card Showcase
-          </h2>
           <div className="flex items-center gap-2 flex-wrap justify-center bg-glass/70 backdrop-blur-md border border-glassline rounded-full px-3 py-2">
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as SortKey)}
               aria-label="Sort cards"
-              className="text-[11px] font-bold px-2.5 py-1.5 rounded-full border border-glassline bg-transparent text-creamdim hover:text-cream transition-colors outline-none cursor-pointer [&>option]:bg-inkdark [&>option]:text-cream"
+              className="text-[11px] font-bold px-2.5 py-1.5 rounded-full border border-glassline bg-transparent text-creamdim hover:text-cream transition-colors outline-none focus-visible:ring-2 focus-visible:ring-amber/70 focus-visible:border-amber cursor-pointer [&>option]:bg-inkdark [&>option]:text-cream"
             >
               {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
                 <option key={k} value={k}>{SORT_LABELS[k]}</option>
@@ -266,6 +278,19 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
               + Add card
             </button>
           </div>
+          {syncError && (
+            <div className="flex items-center gap-2 text-[11px] font-semibold text-creamdim bg-glass/70 backdrop-blur-md border border-glassline rounded-full px-3.5 py-1.5">
+              <span aria-hidden>⚠</span>
+              <span>Showing sample cards — live sync unavailable.</span>
+              <button
+                onClick={syncWallet}
+                disabled={syncing}
+                className="text-amber hover:brightness-110 transition disabled:opacity-50"
+              >
+                Retry
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 진열장 본체 — 화면 전체가 선반 벽 (상하 + 좌우 스크롤) */}
@@ -345,6 +370,13 @@ function RegisterModal({
   const [franchise, setFranchise] = useState("Pokémon");
   const [imageUrl, setImageUrl] = useState("");
   const [looking, setLooking] = useState(false);
+  const [lookupFallback, setLookupFallback] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEscapeToClose(onClose);
+  useEffect(() => {
+    panelRef.current?.focus();
+  }, []);
 
   async function handleLookup() {
     if (!cert.trim()) return;
@@ -354,6 +386,7 @@ function RegisterModal({
     setGrade(found.grade);
     setFranchise(found.franchise);
     if (found.imageUrl) setImageUrl(found.imageUrl);
+    setLookupFallback(found.fromFallback);
     setLooking(false);
   }
 
@@ -363,7 +396,12 @@ function RegisterModal({
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-bg/70 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="w-[min(92vw,420px)] bg-glass border border-glassline rounded-panel p-6 flex flex-col gap-4"
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Add a card"
+        tabIndex={-1}
+        className="w-[min(92vw,420px)] bg-glass border border-glassline rounded-panel p-6 flex flex-col gap-4 outline-none focus-visible:ring-2 focus-visible:ring-amber/60"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-cream font-bold text-lg">Add a card</h3>
@@ -401,6 +439,11 @@ function RegisterModal({
                 {looking ? "…" : "Look up"}
               </button>
             </div>
+            {lookupFallback && (
+              <p className="text-[11px] text-creamdim leading-relaxed -mt-1">
+                ⚠ Couldn&apos;t verify this cert right now — filled in an example so you can see the layout. Double-check the details below.
+              </p>
+            )}
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Card name" className={inputCls} />
             <div className="flex gap-2">
               <input value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="Grade (PSA 10)" className={inputCls} />
@@ -447,10 +490,23 @@ function CardDetail({
   onClose: () => void;
 }) {
   const up = (card.delta30d ?? 0) >= 0;
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEscapeToClose(onClose);
+  useEffect(() => {
+    panelRef.current?.focus();
+  }, []);
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-bg/70 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="w-[min(92vw,400px)] bg-glass border border-glassline rounded-panel p-6 flex flex-col items-center gap-4"
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${card.name} details`}
+        tabIndex={-1}
+        className="w-[min(92vw,400px)] bg-glass border border-glassline rounded-panel p-6 flex flex-col items-center gap-4 outline-none focus-visible:ring-2 focus-visible:ring-amber/60"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="w-[210px] drop-shadow-[0_0_35px_theme(colors.amber/30%)]">
@@ -478,12 +534,30 @@ function CardDetail({
           </div>
         )}
         {card.origin === "physical" && (
-          <button
-            onClick={() => onRemove(card.id)}
-            className="text-[11px] font-bold text-down/80 hover:text-down transition-colors"
-          >
-            Remove from showcase
-          </button>
+          confirmingRemove ? (
+            <div className="flex items-center gap-3 text-[11px] font-bold">
+              <span className="text-creamdim">Remove for good?</span>
+              <button
+                onClick={() => onRemove(card.id)}
+                className="text-down hover:brightness-110 transition"
+              >
+                Yes, remove
+              </button>
+              <button
+                onClick={() => setConfirmingRemove(false)}
+                className="text-creamdim hover:text-cream transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmingRemove(true)}
+              className="text-[11px] font-bold text-down/80 hover:text-down transition-colors"
+            >
+              Remove from showcase
+            </button>
+          )
         )}
       </div>
     </div>
@@ -527,7 +601,7 @@ function Shelves({
                   <button
                     key={card.id}
                     onClick={() => onSelect(card)}
-                    className={`group relative ${CARD_W} shrink-0 transition-transform duration-200 hover:-translate-y-1.5 focus-visible:-translate-y-1.5 outline-none`}
+                    className={`group relative ${CARD_W} shrink-0 rounded-[10px] transition-transform duration-200 hover:-translate-y-1.5 focus-visible:-translate-y-1.5 outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-2 focus-visible:ring-offset-bg`}
                   >
                     {/* 스포트라이트 */}
                     <span
