@@ -79,6 +79,29 @@ export function Scene() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={ROOM_IMG} alt="My room (sketch)" className="block w-full h-full select-none" draggable={false} />
 
+        {/* 방 아트 위에 얹는 오브젝트 사진 (예: 액자 속 사진).
+            방 배경의 일부처럼 어둠 레이어 아래에 두어 로그인 연출과 함께 밝아짐.
+            클릭은 위에 겹친 Hotspot 버튼이 받으므로 여기선 pointer-events 없음. */}
+        {SPOTS.map((s) =>
+          s.overlay ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={`overlay-${s.id}`}
+              src={s.overlay.src}
+              alt=""
+              aria-hidden
+              draggable={false}
+              style={{
+                left: `${s.overlay.left}%`,
+                top: `${s.overlay.top}%`,
+                width: `${s.overlay.width}%`,
+                height: `${s.overlay.height}%`,
+              }}
+              className="absolute object-cover select-none pointer-events-none shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
+            />
+          ) : null
+        )}
+
         {/* 로그인 전: 방 전체 어둡게 (핸드폰만 빛남) */}
         <div
           className={`absolute inset-0 bg-[rgba(4,3,12,0.86)] transition-opacity duration-[900ms] pointer-events-none ${
@@ -97,7 +120,8 @@ export function Scene() {
               disabled={!enabled}
               highlight={isPhone && !entered && !active}
               introDelay={intro ? i * INTRO_STAGGER : null}
-              pop={entered}
+              // 오버레이 사진이 있는 스팟(액자)은 빈 프레임 복제 팝이 사진을 덮으므로 끔
+              pop={entered && !s.overlay}
               onSelect={select}
             />
           );

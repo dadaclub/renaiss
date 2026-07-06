@@ -13,6 +13,12 @@ export interface Spot {
   zoom: { cx: number; cy: number; scale: number };
   /** 외부 링크 스팟 — 클릭 시 새 화면 대신 이 URL을 새 탭으로 연다 (예: 피규어 → 르네 트위터) */
   href?: string;
+  /**
+   * 방 배경 위에 얹는 오브젝트 이미지 (예: 액자 안에 끼운 사진).
+   * 클릭 영역(area)과 별개로, 방 아트에 그려진 액자 안쪽 여백에 정밀 배치한다.
+   * 좌표는 방 이미지 대비 % (position: absolute 오버레이).
+   */
+  overlay?: { src: string; left: number; top: number; width: number; height: number };
 }
 
 // room4 라벨 기준 배치. 클릭 시 새 화면(ObjectScreen)이 뜨므로 좌표는 클릭 영역용.
@@ -20,7 +26,9 @@ export interface Spot {
 export const SPOTS: Spot[] = [
   { id: "cabinet",  label: "Card storage", area: { left: 1,  top: 6,  width: 27, height: 47 }, zoom: { cx: 0.14, cy: 0.29, scale: 2.2 } },
   { id: "computer", label: "Computer",     area: { left: 48, top: 21, width: 19, height: 19 }, zoom: { cx: 0.58, cy: 0.30, scale: 2.4 } },
-  { id: "photo",    label: "Photo frame",  area: { left: 69, top: 2,  width: 28, height: 23 }, zoom: { cx: 0.83, cy: 0.13, scale: 2.3 } },
+  { id: "photo",    label: "Photo frame",  area: { left: 69, top: 2,  width: 28, height: 23 }, zoom: { cx: 0.83, cy: 0.13, scale: 2.3 },
+    // 벽 액자 안쪽 여백에 사진을 끼워 넣음. 클릭하면 PhotoScreen으로 확대.
+    overlay: { src: "/picture_test.jpg", left: 74.6, top: 5.3, width: 21.6, height: 12.4 } },
   { id: "note",     label: "Guestbook",    area: { left: 5,  top: 70, width: 22, height: 22 }, zoom: { cx: 0.16, cy: 0.80, scale: 2.5 } },
   { id: "phone",    label: "Phone",        area: { left: 48, top: 72, width: 8,  height: 15 }, zoom: { cx: 0.52, cy: 0.79, scale: 3.0 } },
   { id: "album",    label: "Album",        area: { left: 62, top: 68, width: 34, height: 24 }, zoom: { cx: 0.79, cy: 0.80, scale: 2.2 } },
