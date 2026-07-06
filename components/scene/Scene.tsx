@@ -1,10 +1,11 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SPOTS, Spot, SpotId, ROOM_IMG } from "@/lib/spots";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 import { Hotspot } from "./Hotspot";
 import { LoginIntro } from "./LoginIntro";
 import { ObjectScreen } from "./ObjectScreen";
+import { OverlayEditor } from "./OverlayEditor";
 
 /**
  * 방 씬.
@@ -19,6 +20,14 @@ export function Scene() {
   const [intro, setIntro] = useState(false); // 입장 온보딩 — 핫스팟 순차 반짝
   const sceneRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState(""); // 로그인 연출(폰 줌)에만 사용
+  // 개발용: ?edit 쿼리로 오버레이(액자 사진) 위치·크기·기울기를 직접 드래그해 맞추는 편집기
+  const [edit, setEdit] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("edit")) {
+      setEdit(true);
+      setEntered(true); // 편집 중엔 로그인 연출 건너뛰고 밝은 방 바로 표시
+    }
+  }, []);
 
   const INTRO_START = 900; // 방 밝아지는 시간과 동기화
   const INTRO_STAGGER = 0.18; // 스팟당 딜레이(초)
@@ -80,12 +89,13 @@ export function Scene() {
         <img src={ROOM_IMG} alt="My room (sketch)" className="block w-full h-full select-none" draggable={false} />
 
         {/* 방 아트 위에 얹는 오브젝트 사진 (예: 액자 속 사진).
-            사진이 놓일 자리에 딱 맞는 투명 박스(div)를 액자 기울기(rotate)에 맞춰 띄우고,
+            사진이 놓일 자리에 딱 맞는 투명 박스(div)를 액자 기울기(skewY)에 맞춰 띄우고,
             그 안에 이미지를 object-cover로 채워 넣는다(넘치는 부분은 박스가 클립).
             방 배경의 일부처럼 어둠 레이어 아래에 두어 로그인 연출과 함께 밝아짐.
             클릭은 위에 겹친 Hotspot 버튼이 받으므로 여기선 pointer-events 없음. */}
         {SPOTS.map((s) =>
-          s.overlay ? (
+          // 편집 중인 오버레이는 정적 렌더를 건너뛰고 OverlayEditor가 대신 그린다
+          s.overlay && !(edit && s.id === "photo") ? (
             <div
               key={`overlay-${s.id}`}
               aria-hidden
@@ -94,7 +104,7 @@ export function Scene() {
                 top: `${s.overlay.top}%`,
                 width: `${s.overlay.width}%`,
                 height: `${s.overlay.height}%`,
-                transform: `rotate(${s.overlay.rotate ?? 0}deg)`,
+                transform: `skewY(${s.overlay.skewY ?? 0}deg)`,
               }}
               className="absolute overflow-hidden pointer-events-none select-none shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
             >
@@ -119,7 +129,7 @@ export function Scene() {
         {SPOTS.map((s, i) => {
           const isPhone = s.id === "phone";
           // 로그인 전엔 핸드폰만, 로그인 후엔 전부. 화면 열림(active) 중엔 잠금.
-          const enabled = (entered ? true : isPhone) && !active;
+          const enabled = (entered ? true : isPhone) && !active && !edit;
           return (
             <Hotspot
               key={s.id}
@@ -133,6 +143,25 @@ export function Scene() {
             />
           );
         })}
+
+        {/* 개발용 오버레이 편집기 (?edit) — 액자 사진을 직접 드래그/리사이즈해 값 확정 */}
+        {edit &&
+          (() => {
+            const o = SPOTS.find((s) => s.id === "photo")?.overlay;
+            return o ? (
+              <OverlayEditor
+                src={o.src}
+                initial={{
+                  left: o.left,
+                  top: o.top,
+                  width: o.width,
+                  height: o.height,
+                  skewY: o.skewY ?? 0,
+                }}
+                sceneRef={sceneRef}
+              />
+            ) : null;
+          })()}
       </div>
 
       {/* 로그인 폼 (핸드폰 줌인 상태) */}

@@ -17,9 +17,10 @@ export interface Spot {
    * 방 배경 위에 얹는 오브젝트 이미지 (예: 액자 안에 끼운 사진).
    * 클릭 영역(area)과 별개로, 방 아트에 그려진 액자 안쪽 여백에 정밀 배치한다.
    * 좌표는 방 이미지 대비 % (position: absolute 로 띄운 투명 박스).
-   * rotate: 액자가 그림에서 살짝 기울어 있으면 그만큼 박스를 회전(도, 시계방향 +).
+   * skewY: 액자 개구부가 양옆은 세로로 곧고 위·아래 변만 기운 평행사변형이라,
+   *        박스를 세로 방향으로 전단(shear)해 프레임 기울기에 맞춘다(도, 아래로 +).
    */
-  overlay?: { src: string; left: number; top: number; width: number; height: number; rotate?: number };
+  overlay?: { src: string; left: number; top: number; width: number; height: number; skewY?: number };
 }
 
 // room4 라벨 기준 배치. 클릭 시 새 화면(ObjectScreen)이 뜨므로 좌표는 클릭 영역용.
@@ -28,8 +29,8 @@ export const SPOTS: Spot[] = [
   { id: "cabinet",  label: "Card storage", area: { left: 1,  top: 6,  width: 27, height: 47 }, zoom: { cx: 0.14, cy: 0.29, scale: 2.2 } },
   { id: "computer", label: "Computer",     area: { left: 48, top: 21, width: 19, height: 19 }, zoom: { cx: 0.58, cy: 0.30, scale: 2.4 } },
   { id: "photo",    label: "Photo frame",  area: { left: 69, top: 2,  width: 28, height: 23 }, zoom: { cx: 0.83, cy: 0.13, scale: 2.3 },
-    // 벽 액자 안쪽 여백에 사진을 끼워 넣음(액자가 살짝 기울어 rotate로 맞춤). 클릭하면 PhotoScreen으로 확대.
-    overlay: { src: "/picture_test.jpg", left: 74.0, top: 6.3, width: 22.0, height: 12.3, rotate: 7 } },
+    // 벽 액자 안쪽 개구부(평행사변형)에 사진을 끼워 넣음(skewY로 기울기 맞춤). 클릭하면 PhotoScreen으로 확대.
+    overlay: { src: "/picture_test.jpg", left: 72.1, top: 5.7, width: 24.4, height: 16.6, skewY: 7 } },
   { id: "note",     label: "Guestbook",    area: { left: 5,  top: 70, width: 22, height: 22 }, zoom: { cx: 0.16, cy: 0.80, scale: 2.5 } },
   { id: "phone",    label: "Phone",        area: { left: 48, top: 72, width: 8,  height: 15 }, zoom: { cx: 0.52, cy: 0.79, scale: 3.0 } },
   { id: "album",    label: "Album",        area: { left: 62, top: 68, width: 34, height: 24 }, zoom: { cx: 0.79, cy: 0.80, scale: 2.2 } },
