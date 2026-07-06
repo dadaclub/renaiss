@@ -80,25 +80,32 @@ export function Scene() {
         <img src={ROOM_IMG} alt="My room (sketch)" className="block w-full h-full select-none" draggable={false} />
 
         {/* 방 아트 위에 얹는 오브젝트 사진 (예: 액자 속 사진).
+            사진이 놓일 자리에 딱 맞는 투명 박스(div)를 액자 기울기(rotate)에 맞춰 띄우고,
+            그 안에 이미지를 object-cover로 채워 넣는다(넘치는 부분은 박스가 클립).
             방 배경의 일부처럼 어둠 레이어 아래에 두어 로그인 연출과 함께 밝아짐.
             클릭은 위에 겹친 Hotspot 버튼이 받으므로 여기선 pointer-events 없음. */}
         {SPOTS.map((s) =>
           s.overlay ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <div
               key={`overlay-${s.id}`}
-              src={s.overlay.src}
-              alt=""
               aria-hidden
-              draggable={false}
               style={{
                 left: `${s.overlay.left}%`,
                 top: `${s.overlay.top}%`,
                 width: `${s.overlay.width}%`,
                 height: `${s.overlay.height}%`,
+                transform: `rotate(${s.overlay.rotate ?? 0}deg)`,
               }}
-              className="absolute object-cover select-none pointer-events-none shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
-            />
+              className="absolute overflow-hidden pointer-events-none select-none shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={s.overlay.src}
+                alt=""
+                draggable={false}
+                className="block w-full h-full object-cover select-none"
+              />
+            </div>
           ) : null
         )}
 
