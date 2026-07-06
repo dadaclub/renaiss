@@ -494,13 +494,11 @@ function CardDetail({
  * 최종 진열장 아트가 나오면 아래 컴포넌트만 교체.
  * 카드 클릭 콜백/데이터 계약은 그대로 유지할 것. */
 
-const SHELF_SIZE = 6; // 선반 한 단에 놓이는 카드 수 (넘치면 가로 스크롤)
-// 카드 폭 — 화면 폭에 따라 96~140px 자동 조절 (좁은 창에서도 한 단이 들어가게)
-const CARD_W = "w-[clamp(96px,11vw,140px)]";
+const SHELF_SIZE = 6; // 진열장 한 줄의 칸 수
 
-/** 월 레지 선반 여러 단 — 얇은 선반 턱 위에 카드가 정면으로 빽빽하게 서 있음.
- *  레퍼런스: 카드샵 월 디스플레이 + 투명 쇼케이스.
- *  카드 폭이 고정이라 한 단이 화면보다 넓으면 컨테이너에서 좌우 스크롤됨. */
+/** 조명 들어오는 칸막이 진열장 가구.
+ *  레퍼런스: 목재 쇼케이스(칸마다 카드 1장 + 내부 조명 + 유리문 + 하단 서랍부)를
+ *  우리 무드(다크+네온 퍼플)로. 줄 수 = 카드 수에 맞춰 자동, 빈 칸은 불 켜진 빈 컴파트먼트. */
 function Shelves({
   cards,
   onSelect,
@@ -510,49 +508,52 @@ function Shelves({
   onSelect: (c: ShelfCard) => void;
   skeleton?: boolean;
 }) {
-  const rows: (ShelfCard | null)[][] = [];
-  for (let i = 0; i < cards.length; i += SHELF_SIZE) rows.push(cards.slice(i, i + SHELF_SIZE));
+  // 마지막 줄을 빈 칸으로 채워 격자 완성 (최소 한 줄)
+  const cellCount = Math.max(Math.ceil(cards.length / SHELF_SIZE), 1) * SHELF_SIZE;
+  const cells: (ShelfCard | null)[] = Array.from({ length: cellCount }, (_, i) => cards[i] ?? null);
 
   return (
-    <div className="w-max min-w-full flex flex-col items-center">
-      {/* 선반 개수 = 카드 수에 맞춤. 선반 길이는 가장 긴 단에 맞춰 전부 동일 —
-          덜 찬 단은 같은 길이 선반 위에서 중앙 정렬 (가구처럼 위아래 폭 일치) */}
-      <div className="w-max flex flex-col gap-7">
-        {rows.map((row, r) => (
-          <div key={r}>
-            {/* 카드들 — 선반 턱 위에 정면으로 서 있음 */}
-            <div className="flex items-end justify-center gap-3 px-5">
-              {row.map((card, i) =>
-                card && !skeleton ? (
-                  <button
-                    key={card.id}
-                    onClick={() => onSelect(card)}
-                    className={`group relative ${CARD_W} shrink-0 transition-transform duration-200 hover:-translate-y-1.5 focus-visible:-translate-y-1.5 outline-none`}
-                  >
-                    {/* 스포트라이트 */}
-                    <span
-                      aria-hidden
-                      className="absolute -inset-x-2 -top-3 -bottom-1 bg-[radial-gradient(ellipse_at_bottom,theme(colors.amber/14%),transparent_68%)] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-                    />
-                    <GradedSlab card={card} />
-                  </button>
-                ) : (
-                  <div
-                    key={i}
-                    className={`${CARD_W} shrink-0 aspect-[5/7] rounded-[6px] ${
-                      skeleton ? "bg-cream/[0.04] border border-glassline animate-pulse" : ""
-                    }`}
-                  />
-                )
+    <div className="mx-auto w-[min(96vw,1000px)]">
+      {/* 캐비닛 몸체 — 두꺼운 프레임 + 내부 은은한 발광 */}
+      <div className="rounded-2xl border-[10px] border-inkdark bg-bg/70 shadow-[0_24px_70px_rgba(0,0,0,0.55),inset_0_0_50px_theme(colors.amber/6%)] overflow-hidden">
+        {/* 칸막이 격자 */}
+        <div className="grid grid-cols-6 gap-[6px] bg-inkdark/80 p-[6px]">
+          {cells.map((card, i) => (
+            <div
+              key={card ? card.id : `empty-${i}`}
+              className="relative rounded-[8px] bg-cream/[0.035] border border-glassline/50 flex items-end justify-center pt-6 pb-2.5 px-2"
+            >
+              {/* 칸 내부 조명 — 위에서 내려오는 빛 + 바닥 반사 */}
+              <span
+                aria-hidden
+                className="absolute inset-x-0 top-0 h-2/3 bg-[radial-gradient(ellipse_60%_50%_at_50%_0%,theme(colors.amber/16%),transparent_75%)] pointer-events-none"
+              />
+              <span
+                aria-hidden
+                className="absolute inset-x-3 bottom-1.5 h-4 bg-[radial-gradient(ellipse_at_bottom,theme(colors.amber/20%),transparent_75%)] blur-[3px] pointer-events-none"
+              />
+              {card && !skeleton ? (
+                <button
+                  onClick={() => onSelect(card)}
+                  className="group relative w-full transition-transform duration-200 hover:-translate-y-1 focus-visible:-translate-y-1 outline-none"
+                >
+                  <GradedSlab card={card} />
+                </button>
+              ) : (
+                <div
+                  className={`w-full aspect-[3/5] rounded-[6px] ${
+                    skeleton ? "bg-cream/[0.05] border border-glassline animate-pulse" : ""
+                  }`}
+                />
               )}
             </div>
-            {/* 얇은 선반 턱 (월 레지) — 카드 너비에 맞춰 끝남 */}
-            <div className="h-[3px] bg-cream/30 rounded-t-[1px]" />
-            <div className="h-[7px] rounded-b-[2px] bg-gradient-to-b from-inkdark to-bg shadow-[0_12px_24px_-6px_theme(colors.amber/20%)]" />
-            {/* 선반 아래 은은한 벽 그림자 */}
-            <div className="h-4 bg-[linear-gradient(180deg,theme(colors.bg/70%),transparent)]" />
-          </div>
-        ))}
+          ))}
+        </div>
+        {/* 하단 베이스 (서랍부) */}
+        <div className="h-10 bg-inkdark border-t-2 border-glassline/60 flex items-center justify-center gap-24">
+          <span className="w-12 h-[5px] rounded-full bg-cream/15" />
+          <span className="w-12 h-[5px] rounded-full bg-cream/15" />
+        </div>
       </div>
     </div>
   );
