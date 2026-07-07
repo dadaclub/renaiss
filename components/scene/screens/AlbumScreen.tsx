@@ -95,7 +95,13 @@ function StickerBinder({
   fallback: boolean;
   onPick: (p: Picked) => void;
 }) {
-  const cells = Array.from({ length: SLOTS }, (_, i) => sbts?.[i] ?? null);
+  // 16개(4×4) 초과 시 여러 장으로 나눔 — 현재 페이지만 렌더.
+  const [page, setPage] = useState(0);
+  const total = sbts?.length ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / SLOTS));
+  const curPage = Math.min(page, pageCount - 1); // 데이터가 줄어도 범위 안전
+  const pageItems = (sbts ?? []).slice(curPage * SLOTS, curPage * SLOTS + SLOTS);
+  const cells = Array.from({ length: SLOTS }, (_, i) => pageItems[i] ?? null);
 
   return (
     <div className="w-[min(92vw,540px)]">
@@ -147,6 +153,33 @@ function StickerBinder({
           })}
         </div>
       </div>
+
+      {/* 페이지 넘김 — 뱃지가 16개(4×4) 초과일 때만 표시 */}
+      {pageCount > 1 && (
+        <div className="mt-3.5 flex items-center justify-center gap-4">
+          <button
+            type="button"
+            onClick={() => setPage(Math.max(0, curPage - 1))}
+            disabled={curPage === 0}
+            aria-label="Previous page"
+            className="w-8 h-8 rounded-full bg-glass border border-glassline text-cream backdrop-blur-md flex items-center justify-center text-lg leading-none hover:border-amber hover:text-amber transition-colors disabled:opacity-35 disabled:pointer-events-none"
+          >
+            ‹
+          </button>
+          <span className="text-cream/80 text-xs font-semibold tabular-nums">
+            {curPage + 1} / {pageCount}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage(Math.min(pageCount - 1, curPage + 1))}
+            disabled={curPage === pageCount - 1}
+            aria-label="Next page"
+            className="w-8 h-8 rounded-full bg-glass border border-glassline text-cream backdrop-blur-md flex items-center justify-center text-lg leading-none hover:border-amber hover:text-amber transition-colors disabled:opacity-35 disabled:pointer-events-none"
+          >
+            ›
+          </button>
+        </div>
+      )}
     </div>
   );
 }
