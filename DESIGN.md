@@ -36,7 +36,7 @@
 | 패널 등장/퇴장 | opacity + translate 0.45s |
 | 핫스팟 호버 팝 | 클립 복제 scale 1 → 1.05 + opacity, 0.2s |
 | 핫스팟 글로우 | opacity 0.3s (hover 시) |
-| 울리는 핸드폰 | `animate-ring` (ring-shake 0.85s infinite, globals.css) |
+| 울리는 핸드폰 | `animate-ring` (ring-shake 2.2s infinite + 1.2s 지연 — 사이클 앞 40%만 흔들리는 전화 진동 패턴, globals.css) |
 | 진입 스플래시 탭 힌트 | `animate-tap-hint` (opacity 0.55↔1, 2.4s infinite, globals.css) |
 | 호버 (카드 아이템) | translateX(3px) + 배경 밝아짐, Tailwind 기본 0.15s |
 

@@ -57,7 +57,7 @@ export function Hotspot({
         <>
           <span
             aria-hidden
-            className="absolute -inset-[18%] rounded-[inherit] mix-blend-screen bg-[radial-gradient(ellipse_at_center,theme(colors.amber/35%),transparent_72%)] pointer-events-none"
+            className="absolute -inset-[18%] rounded-[inherit] mix-blend-screen bg-[radial-gradient(ellipse_at_center,theme(colors.amber/35%),transparent_72%)] opacity-0 animate-[fade-in_0.6s_ease-out_1.2s_both] motion-reduce:animate-none motion-reduce:opacity-100 pointer-events-none"
           />
           <span
             aria-hidden
