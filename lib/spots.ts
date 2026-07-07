@@ -1,4 +1,6 @@
 /** 핫스팟 좌표 설정 — 이미지(room4.png, 정사각) 기준 %. 좌표 수정은 이 파일에서만. */
+import type { Corners } from "./quad";
+
 export type SpotId = "cabinet" | "computer" | "phone" | "photo" | "album" | "note" | "figure";
 
 /** 르네시스 트위터(X) — 피규어 클릭 시 이동 */
@@ -16,21 +18,22 @@ export interface Spot {
   /**
    * 방 배경 위에 얹는 오브젝트 이미지 (예: 액자 안에 끼운 사진).
    * 클릭 영역(area)과 별개로, 방 아트에 그려진 액자 안쪽 여백에 정밀 배치한다.
-   * 좌표는 방 이미지 대비 % (position: absolute 로 띄운 투명 박스).
-   * skewY: 액자 개구부가 양옆은 세로로 곧고 위·아래 변만 기운 평행사변형이라,
-   *        박스를 세로 방향으로 전단(shear)해 프레임 기울기에 맞춘다(도, 아래로 +).
+   * corners: 액자 개구부 네 꼭짓점(방 이미지 대비 %). 위·아래 변 기울기가 달라도
+   *          각 모서리를 독립적으로 잡아 사다리꼴/원근으로 맞춘다. (?edit 편집기로 조정)
    */
-  overlay?: { src: string; left: number; top: number; width: number; height: number; skewY?: number };
+  overlay?: { src: string; corners: Corners };
 }
 
 // room4 라벨 기준 배치. 클릭 시 새 화면(ObjectScreen)이 뜨므로 좌표는 클릭 영역용.
 // 아직 없는 오브젝트(과자)는 해당 기능 구현 시 추가.
 export const SPOTS: Spot[] = [
   { id: "cabinet",  label: "Card storage", area: { left: 1,  top: 6,  width: 27, height: 47 }, zoom: { cx: 0.14, cy: 0.29, scale: 2.2 } },
+  // 컴퓨터 화면 quad(측정 완료) — 나중에 모니터에 액자처럼 사진 얹을 때 아래 overlay 주석을 살리고 src만 교체.
+  // overlay: { src: "/picture_v1.jpg", corners: { tl: [47.7, 20.9], tr: [62.9, 24.8], br: [63.1, 36.8], bl: [48.1, 32.8] } }
   { id: "computer", label: "Computer",     area: { left: 48, top: 21, width: 19, height: 19 }, zoom: { cx: 0.58, cy: 0.30, scale: 2.4 } },
   { id: "photo",    label: "Photo frame",  area: { left: 69, top: 2,  width: 28, height: 23 }, zoom: { cx: 0.83, cy: 0.13, scale: 2.3 },
-    // 벽 액자 안쪽 개구부(평행사변형)에 사진을 끼워 넣음(skewY로 기울기 맞춤). 클릭하면 PhotoScreen으로 확대.
-    overlay: { src: "/picture_test.jpg", left: 72.1, top: 5.7, width: 24.4, height: 16.6, skewY: 7 } },
+    // 벽 액자 안쪽 개구부 네 꼭짓점에 사진을 끼워 넣음. 클릭하면 PhotoScreen으로 확대.
+    overlay: { src: "/picture_v1_cdither_g24_l4.jpg", corners: { tl: [73.9, 4.1], tr: [96.8, 8.6], br: [96.6, 24.2], bl: [73.9, 18.6] } } },
   { id: "note",     label: "Guestbook",    area: { left: 5,  top: 70, width: 22, height: 22 }, zoom: { cx: 0.16, cy: 0.80, scale: 2.5 } },
   { id: "phone",    label: "Phone",        area: { left: 48, top: 72, width: 8,  height: 15 }, zoom: { cx: 0.52, cy: 0.79, scale: 3.0 } },
   { id: "album",    label: "Album",        area: { left: 62, top: 68, width: 34, height: 24 }, zoom: { cx: 0.79, cy: 0.80, scale: 2.2 } },
@@ -41,11 +44,13 @@ export const SPOTS: Spot[] = [
 export const IMG_ASPECT = 1;
 
 /**
- * 로그인 전, 어둠 속에서 켜진 핸드폰 화면 불빛의 위치·크기·기울기 (방 이미지 대비 %).
- * 핸드폰은 그림상 열린 플립폰이라, 클릭영역(phone.area)과 별개로 위쪽 디스플레이에 맞춘다.
- * rotate: 폰이 살짝 기울어 있어 그만큼 화면 사각형을 회전(도, 시계방향 +).
+ * 로그인 전, 어둠 속에서 켜진 핸드폰 화면 불빛의 네 꼭짓점 (방 이미지 대비 %).
+ * 핸드폰은 그림상 열린 플립폰이라, 클릭영역(phone.area)과 별개로 위쪽 디스플레이에 정확히 맞춘다.
+ * (?edit 편집기의 phone 스팟으로 측정)
  */
-export const PHONE_GLOW = { left: 50.7, top: 74.4, width: 3.5, height: 6.4, rotate: 17 };
+export const PHONE_GLOW: { corners: Corners } = {
+  corners: { tl: [51.8, 75.7], tr: [55.1, 76], br: [54.1, 82.3], bl: [50.6, 81.6] },
+};
 
 /** 방 씬 이미지 경로 — Scene(배경)과 Hotspot(호버 팝 복제)이 공유 */
 export const ROOM_IMG = "/room4.png";

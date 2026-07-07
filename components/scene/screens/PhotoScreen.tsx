@@ -9,7 +9,7 @@ import { ScreenShell } from "./ScreenShell";
  *
  * 사진 교체: public/ 에 이미지를 넣고 PHOTO_SRC 만 바꾸면 됨.
  */
-const PHOTO_SRC = "/picture_test.jpg";
+const PHOTO_SRC = "/picture_v1_cdither_g2_l4.jpg";
 const LENS = 160; // 돋보기 지름(px)
 const ZOOM = 1.5; // 확대 배율
 
