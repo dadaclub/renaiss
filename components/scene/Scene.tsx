@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SPOTS, Spot, SpotId, ROOM_IMG } from "@/lib/spots";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
+import { BackgroundMusic } from "./BackgroundMusic";
 import { Hotspot } from "./Hotspot";
 import { LoginIntro } from "./LoginIntro";
 import { ObjectScreen } from "./ObjectScreen";
@@ -180,6 +181,9 @@ export function Scene() {
 
       {/* 오브젝트 새 화면 (로그인 후) */}
       {loggedIn && active && <ObjectScreen spot={active} onClose={close} onLogout={logout} />}
+
+      {/* 배경음악 — 로그인 후 계속 재생, 우하단 아이콘으로 음소거 토글 */}
+      <BackgroundMusic active={loggedIn} />
     </main>
   );
 }
