@@ -629,12 +629,12 @@ function Shelves({
   return (
     <div className="w-max min-w-full flex flex-col items-center">
       {/* 선반 개수 = 카드 수에 맞춤. 선반 길이는 가장 긴 단에 맞춰 전부 동일 —
-          덜 찬 단은 같은 길이 선반 위에서 중앙 정렬 (가구처럼 위아래 폭 일치) */}
+          카드는 무조건 왼쪽부터 채움 (덜 찬 단도 좌측 정렬, 오른쪽이 빈 자리) */}
       <div className="w-max flex flex-col gap-7">
         {rows.map((row, r) => (
           <div key={r}>
-            {/* 카드들 — 선반 턱 위에 정면으로 서 있음 */}
-            <div className="flex items-end justify-center gap-3 px-5">
+            {/* 카드들 — 선반 턱 위에 정면으로, 왼쪽부터 서 있음 */}
+            <div className="flex items-end justify-start gap-3 px-5">
               {row.map((card, i) =>
                 card && !skeleton ? (
                   <button
