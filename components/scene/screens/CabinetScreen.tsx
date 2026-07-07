@@ -1,5 +1,16 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  ArrowLeft,
+  ArrowsClockwise,
+  Cards,
+  LinkSimple,
+  Package,
+  Plus,
+  TrendDown,
+  TrendUp,
+  Warning,
+} from "@phosphor-icons/react";
 import { ROOM_IMG } from "@/lib/spots";
 import { Chip } from "@/components/ui/Chip";
 import { MOCK_CARDS, fmtUsd } from "@/lib/mockCards";
@@ -143,10 +154,10 @@ type SortKey = "newest" | "oldest" | "priceHigh" | "priceLow";
 type ModalState = null | "register";
 
 const SORT_LABELS: Record<SortKey, string> = {
-  newest: "Newest first",
-  oldest: "Oldest first",
-  priceHigh: "Price: high → low",
-  priceLow: "Price: low → high",
+  newest: "Newest",
+  oldest: "Oldest",
+  priceHigh: "Price high",
+  priceLow: "Price low",
 };
 
 /** 정렬. 가격 미상(실물 미평가) 카드는 금액 정렬에서 맨 뒤로 */
@@ -238,9 +249,10 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
 
       <button
         onClick={onClose}
-        className="fixed top-6 left-6 z-10 bg-glass border border-glassline text-cream text-xs font-bold px-4 py-2.5 rounded-full backdrop-blur-md hover:border-amber hover:text-amber transition-colors"
+        className="fixed top-6 left-6 z-10 inline-flex items-center gap-1.5 bg-glass border border-glassline text-cream text-xs font-bold px-4 py-2.5 rounded-full backdrop-blur-md hover:border-amber hover:text-amber transition-colors"
       >
-        ← Back to room
+        <ArrowLeft size={14} weight="bold" aria-hidden />
+        Back to room
       </button>
 
       <div
@@ -248,40 +260,46 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
           shown ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
         }`}
       >
-        {/* 상단 — 떠 있는 컨트롤 (타이틀 없음) */}
-        <div className="shrink-0 flex flex-col items-center gap-3 pt-6 pb-2 px-6">
+        {/* 상단 — 떠 있는 컨트롤 (타이틀 없음). 좁은 화면에선 고정 Back 버튼 아래로 내림 */}
+        <div className="shrink-0 flex flex-col items-center gap-3 pt-[72px] lg:pt-6 pb-2 px-6">
           <div className="flex items-center gap-2 flex-wrap justify-center bg-glass/70 backdrop-blur-md border border-glassline rounded-full px-3 py-2">
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortKey)}
-              aria-label="Sort cards"
-              className="text-[11px] font-bold px-2.5 py-1.5 rounded-full border border-glassline bg-transparent text-creamdim hover:text-cream transition-colors outline-none focus-visible:ring-2 focus-visible:ring-amber/70 focus-visible:border-amber cursor-pointer [&>option]:bg-inkdark [&>option]:text-cream"
-            >
+            {/* 정렬 — 네이티브 select 대신 브랜드 Chip 토글 */}
+            <div aria-label="Sort cards" className="flex items-center gap-1.5">
               {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
-                <option key={k} value={k}>{SORT_LABELS[k]}</option>
+                <Chip key={k} active={sort === k} onClick={() => setSort(k)}>
+                  {SORT_LABELS[k]}
+                </Chip>
               ))}
-            </select>
-            <span className="text-[11px] text-creamdim font-semibold px-1">
+            </div>
+            <span className="w-px h-4 bg-glassline" aria-hidden />
+            <span className="text-[12px] text-creamdim font-semibold px-1">
               {syncing ? "Syncing wallet…" : synced ? `${visible.length} cards` : ""}
             </span>
             <button
               onClick={syncWallet}
               disabled={syncing}
-              className="text-[11px] font-bold px-3 py-1.5 rounded-full border border-glassline text-creamdim hover:text-cream transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 text-[12px] font-bold px-3 py-1.5 rounded-full border border-glassline text-creamdim hover:text-cream transition-colors disabled:opacity-50"
             >
-              ⟳ Sync
+              <ArrowsClockwise
+                size={13}
+                weight="bold"
+                className={syncing ? "animate-spin motion-reduce:animate-none" : ""}
+                aria-hidden
+              />
+              Sync
             </button>
             <button
               onClick={() => setModal("register")}
-              className="text-[11px] font-bold px-3.5 py-1.5 rounded-full bg-amber text-inkdark hover:brightness-110 transition"
+              className="inline-flex items-center gap-1.5 text-[12px] font-bold px-3.5 py-1.5 rounded-full bg-amber text-inkdark hover:brightness-110 transition"
             >
-              + Add card
+              <Plus size={13} weight="bold" aria-hidden />
+              Add card
             </button>
           </div>
           {syncError && (
-            <div className="flex items-center gap-2 text-[11px] font-semibold text-creamdim bg-glass/70 backdrop-blur-md border border-glassline rounded-full px-3.5 py-1.5">
-              <span aria-hidden>⚠</span>
-              <span>Showing sample cards — live sync unavailable.</span>
+            <div className="flex items-center gap-2 text-[12px] font-semibold text-creamdim bg-glass/70 backdrop-blur-md border border-glassline rounded-full px-3.5 py-1.5">
+              <Warning size={13} weight="fill" className="shrink-0 text-down" aria-hidden />
+              <span>Showing sample cards. Live sync unavailable.</span>
               <button
                 onClick={syncWallet}
                 disabled={syncing}
@@ -303,7 +321,7 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
             />
           ) : visible.length === 0 ? (
             <div className="h-[52vh] flex flex-col items-center justify-center gap-3 text-creamdim text-sm">
-              <span className="text-3xl">🗄️</span>
+              <Cards size={42} weight="duotone" className="text-amber/80" aria-hidden />
               <p>This shelf is empty.</p>
               <button
                 onClick={() => setModal("register")}
@@ -417,9 +435,10 @@ function RegisterModal({
             </p>
             <button
               onClick={() => { onSync(); onClose(); }}
-              className="bg-amber text-inkdark font-bold rounded-xl px-5 py-2.5 text-sm hover:brightness-110 transition"
+              className="inline-flex items-center justify-center gap-1.5 bg-amber text-inkdark font-bold rounded-xl px-5 py-2.5 text-sm hover:brightness-110 transition"
             >
-              ⟳ Sync from wallet
+              <ArrowsClockwise size={14} weight="bold" aria-hidden />
+              Sync from wallet
             </button>
           </div>
         ) : (
@@ -440,8 +459,10 @@ function RegisterModal({
               </button>
             </div>
             {lookupFallback && (
-              <p className="text-[11px] text-creamdim leading-relaxed -mt-1">
-                ⚠ Couldn&apos;t verify this cert right now — filled in an example so you can see the layout. Double-check the details below.
+              <p className="flex items-start gap-1.5 text-[11px] text-creamdim leading-relaxed -mt-1">
+                <Warning size={13} weight="fill" className="shrink-0 mt-px text-down" aria-hidden />
+                Couldn&apos;t verify this cert right now, so an example was filled in. Double-check
+                the details below.
               </p>
             )}
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Card name" className={inputCls} />
@@ -515,11 +536,22 @@ function CardDetail({
         <div className="text-center">
           <div className="text-cream font-bold text-lg">{card.name}</div>
           <div className="text-[12px] text-creamdim font-semibold mt-0.5">
-            {card.grade} · {card.franchise} · {card.acquiredAt || "—"}
+            {card.grade} · {card.franchise}
+            {card.acquiredAt ? ` · ${card.acquiredAt}` : ""}
           </div>
-          <div className="text-[11px] font-bold mt-1.5">
-            <span className="px-2 py-0.5 rounded-full bg-ambersoft text-amber">
-              {card.origin === "onchain" ? "⛓ On-chain" : `📦 Physical${card.certNumber ? ` · #${card.certNumber}` : ""}`}
+          <div className="text-[12px] font-bold mt-1.5">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-ambersoft text-amber">
+              {card.origin === "onchain" ? (
+                <>
+                  <LinkSimple size={11} weight="bold" aria-hidden />
+                  On-chain
+                </>
+              ) : (
+                <>
+                  <Package size={11} weight="bold" aria-hidden />
+                  Physical{card.certNumber ? ` · #${card.certNumber}` : ""}
+                </>
+              )}
             </span>
           </div>
         </div>
@@ -527,8 +559,15 @@ function CardDetail({
           <div className="text-center">
             <div className="text-cream text-xl font-extrabold">{fmtUsd(card.priceUsd)}</div>
             {card.delta30d !== undefined && (
-              <div className={`text-[11px] font-bold ${up ? "text-up" : "text-down"}`}>
-                {up ? "▲" : "▼"} {Math.abs(card.delta30d).toFixed(1)}% · 30d
+              <div
+                className={`inline-flex items-center gap-1 text-[12px] font-bold ${up ? "text-up" : "text-down"}`}
+              >
+                {up ? (
+                  <TrendUp size={12} weight="bold" aria-hidden />
+                ) : (
+                  <TrendDown size={12} weight="bold" aria-hidden />
+                )}
+                {Math.abs(card.delta30d).toFixed(1)}% · 30d
               </div>
             )}
           </div>
@@ -590,12 +629,12 @@ function Shelves({
   return (
     <div className="w-max min-w-full flex flex-col items-center">
       {/* 선반 개수 = 카드 수에 맞춤. 선반 길이는 가장 긴 단에 맞춰 전부 동일 —
-          덜 찬 단은 같은 길이 선반 위에서 중앙 정렬 (가구처럼 위아래 폭 일치) */}
+          카드는 무조건 왼쪽부터 채움 (덜 찬 단도 좌측 정렬, 오른쪽이 빈 자리) */}
       <div className="w-max flex flex-col gap-7">
         {rows.map((row, r) => (
           <div key={r}>
-            {/* 카드들 — 선반 턱 위에 정면으로 서 있음 */}
-            <div className="flex items-end justify-center gap-3 px-5">
+            {/* 카드들 — 선반 턱 위에 정면으로, 왼쪽부터 서 있음 */}
+            <div className="flex items-end justify-start gap-3 px-5">
               {row.map((card, i) =>
                 card && !skeleton ? (
                   <button
@@ -620,11 +659,11 @@ function Shelves({
                 )
               )}
             </div>
-            {/* 얇은 선반 턱 (월 레지) — 카드 너비에 맞춰 끝남 */}
-            <div className="h-[3px] bg-cream/30 rounded-t-[1px]" />
-            <div className="h-[7px] rounded-b-[2px] bg-gradient-to-b from-inkdark to-bg shadow-[0_12px_24px_-6px_theme(colors.amber/20%)]" />
-            {/* 선반 아래 은은한 벽 그림자 */}
-            <div className="h-4 bg-[linear-gradient(180deg,theme(colors.bg/70%),transparent)]" />
+            {/* 선반 턱 (월 레지) — 윗면 하이라이트 + 두께감 + 네온 언더글로우로 가구처럼 */}
+            <div className="h-[3px] rounded-t-[2px] bg-gradient-to-b from-cream/45 to-cream/15" />
+            <div className="h-[11px] rounded-b-[3px] bg-gradient-to-b from-inkdark via-inkdark/80 to-bg border-x border-b border-glassline/60 shadow-[0_14px_32px_-4px_theme(colors.amber/35%)]" />
+            {/* 선반 아래 은은한 벽 그림자 + 네온 반사광 */}
+            <div className="h-5 bg-[linear-gradient(180deg,theme(colors.amber/8%),theme(colors.bg/60%)_45%,transparent)]" />
           </div>
         ))}
       </div>
@@ -652,21 +691,21 @@ function GradedSlab({ card, large = false }: { card: ShelfCard; large?: boolean 
     <div className="relative rounded-[10px] border border-cream/25 bg-gradient-to-b from-cream/[0.10] to-cream/[0.03] p-[5%] shadow-[inset_0_1px_0_theme(colors.cream/20%),0_6px_18px_rgba(0,0,0,0.45)]">
       {/* 라벨 */}
       <div className="flex items-center justify-between gap-1 rounded-[5px] bg-inkdark border border-glassline px-[7%] py-[4%] mb-[5%]">
-        <span className={`font-bold text-cream truncate ${large ? "text-[11px]" : "text-[9px]"}`}>
+        <span className={`font-bold text-cream truncate ${large ? "text-[12px]" : "text-[10px]"}`}>
           {card.name}
         </span>
         <span
-          className={`shrink-0 font-extrabold rounded-[3px] bg-amber text-inkdark px-1 ${large ? "text-[11px]" : "text-[9px]"}`}
+          className={`shrink-0 font-extrabold rounded-[3px] bg-amber text-inkdark px-1 ${large ? "text-[12px]" : "text-[10px]"}`}
         >
           {card.grade}
         </span>
       </div>
-      {/* 카드 아트 (플레이스홀더) */}
+      {/* 카드 아트 (플레이스홀더 — 실카드 이미지가 없을 때) */}
       <div
         className="aspect-[5/7] rounded-[6px] overflow-hidden border border-cream/10 flex items-center justify-center"
         style={{ background: card.tint }}
       >
-        <span className={large ? "text-6xl" : "text-3xl"}>{card.emoji}</span>
+        <Cards size={large ? 56 : 30} weight="duotone" className="text-cream/50" aria-hidden />
       </div>
       {/* 케이스 사선 광택 */}
       <span

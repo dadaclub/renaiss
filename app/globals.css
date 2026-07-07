@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Gochi+Hand&family=Noto+Serif+KR:wght@500;600&display=swap");
+/* 폰트(Fredoka/Noto Serif KR/Gochi Hand)는 app/layout.tsx의 next/font가 셀프호스팅으로 로드 */
 
 body {
   @apply bg-bg text-cream font-sans overflow-hidden;
@@ -48,6 +48,16 @@ button:enabled,
 }
 .animate-tap-hint {
   animation: tap-hint 2.4s ease-in-out infinite;
+}
+
+/* 로그인 직후 — 오브젝트들이 차례로 한 번씩 빛남 (인터랙티브해졌다는 피드백) */
+@keyframes hotspot-wake {
+  0% { opacity: 0; }
+  35% { opacity: 0.9; }
+  100% { opacity: 0; }
+}
+.animate-wake {
+  animation: hotspot-wake 1.1s ease-out both;
 }
 
 /* 앨범 스티커 확대 상세 — 팝인 */
