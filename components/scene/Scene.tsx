@@ -123,6 +123,8 @@ export function Scene() {
               // 오버레이 사진이 있는 스팟(액자)은 빈 프레임 복제 팝이 사진을 덮으므로 끔
               // (대신 OverlayQuad가 hovered로 사진째 확대됨)
               pop={entered && !s.overlay}
+              // 입장 후 로그인 전 — 폰이 진동하며 "눌러서 로그인"을 유도 (열면 멈춤)
+              ring={isPhone && entered && !loggedIn && !active}
               // 로그인 직후 오브젝트들이 차례로 한 번씩 빛남 — "이제 눌러볼 수 있다"는 피드백
               wake={loggedIn}
               wakeDelay={i * 0.12}

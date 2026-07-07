@@ -27,18 +27,31 @@ button:enabled,
   cursor: url("/cursor-neon-arrow.svg") 4 2, pointer;
 }
 
-/* 로그인 인트로 — 울리는 핸드폰 흔들림 */
+/* 로그인 인트로 — 울리는 핸드폰. "지잉… (쉼) … 지잉" 실제 전화 진동 패턴:
+   한 사이클 2.2s 중 앞 40%만 흔들리고 나머지는 정지.
+   시작은 방 밝아짐(0.9s)이 끝난 뒤 1.2s 지연. */
 @keyframes ring-shake {
-  0%, 100% { transform: rotate(0deg); }
-  15% { transform: rotate(-5deg); }
-  30% { transform: rotate(5deg); }
-  45% { transform: rotate(-4deg); }
-  60% { transform: rotate(4deg); }
-  75% { transform: rotate(-2deg); }
+  0%, 45%, 100% { transform: rotate(0deg); }
+  6% { transform: rotate(-4deg); }
+  13% { transform: rotate(4deg); }
+  20% { transform: rotate(-3deg); }
+  27% { transform: rotate(3deg); }
+  34% { transform: rotate(-2deg); }
+  40% { transform: rotate(1.5deg); }
 }
 .animate-ring {
-  animation: ring-shake 0.85s ease-in-out infinite;
+  /* 클론은 밝은 원본 이미지 조각이라, 방이 밝아지기 전에 보이면 밝은 네모로 뜬다.
+     fade-in(1.2s 지연)으로 방 밝아짐(0.9s)이 끝난 뒤에야 나타나게 함 */
+  animation:
+    fade-in 0.3s ease-out 1.2s both,
+    ring-shake 2.2s ease-in-out 1.2s infinite;
   transform-origin: 50% 88%;
+}
+
+/* 울리는 폰 주변 글로우 — 방이 밝아진 뒤 은은하게 떠오름 */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* 진입 스플래시 — "화면을 탭해서 입장" 안내가 은은히 숨쉬며 탭을 유도한다. */
