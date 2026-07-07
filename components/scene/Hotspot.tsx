@@ -6,6 +6,8 @@ interface Props {
   disabled: boolean;
   /** 호버 팝(5% 확대) 활성화 — 로그인 후에만 (어두운 방에선 복제본이 밝게 떠서 분위기 깨짐) */
   pop?: boolean;
+  /** 울리는 핸드폰 진동 — 입장 후 로그인 전, "이걸 눌러야 한다"는 유도. 폰 스팟 전용 */
+  ring?: boolean;
   /** 로그인 직후 한 번 빛나는 웨이크 글로우 — 오브젝트가 인터랙티브해졌다는 피드백 */
   wake?: boolean;
   /** 웨이크 글로우 시작 지연(초) — Scene이 스팟 순서대로 스태거를 준다 */
@@ -19,6 +21,7 @@ export function Hotspot({
   spot,
   disabled,
   pop = false,
+  ring = false,
   wake = false,
   wakeDelay = 0,
   onHover,
@@ -47,6 +50,25 @@ export function Hotspot({
           }}
           className="absolute inset-0 rounded-[inherit] opacity-0 scale-100 transition-all duration-200 group-hover:opacity-100 group-hover:scale-105 group-focus-visible:opacity-100 group-focus-visible:scale-105 [mask-image:radial-gradient(ellipse_at_center,black_55%,transparent_92%)] motion-reduce:transition-none pointer-events-none"
         />
+      )}
+      {/* 울리는 핸드폰 — 이 영역 클립 복제본이 진동(ring-shake)해 "눌러서 받아라"를 유도.
+          모션 축소 환경에선 진동 대신 정적 amber 글로우만 남는다 */}
+      {ring && (
+        <>
+          <span
+            aria-hidden
+            className="absolute -inset-[18%] rounded-[inherit] mix-blend-screen bg-[radial-gradient(ellipse_at_center,theme(colors.amber/35%),transparent_72%)] pointer-events-none"
+          />
+          <span
+            aria-hidden
+            style={{
+              backgroundImage: `url(${ROOM_IMG})`,
+              backgroundSize: `${10000 / width}% ${10000 / height}%`,
+              backgroundPosition: `${(left / (100 - width)) * 100}% ${(top / (100 - height)) * 100}%`,
+            }}
+            className="absolute inset-0 rounded-[inherit] animate-ring motion-reduce:animate-none [mask-image:radial-gradient(ellipse_at_center,black_55%,transparent_92%)] pointer-events-none"
+          />
+        </>
       )}
       {/* 웨이크 글로우 — 로그인 직후 스팟 순서대로 한 번씩 amber로 빛남 */}
       {wake && (
