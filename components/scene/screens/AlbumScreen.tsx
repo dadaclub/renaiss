@@ -114,9 +114,9 @@ function StickerBinder({
           className="pointer-events-none absolute inset-0 rounded-[18px] bg-[linear-gradient(122deg,rgba(255,255,255,0.22),transparent_40%)]"
         />
 
-        {/* 왼쪽 바인더 링 */}
-        <div className="relative z-10 flex flex-col justify-around items-center py-3 -ml-0.5 shrink-0">
-          {[0, 1, 2, 3, 4].map((i) => (
+        {/* 왼쪽 바인더 링 — 포켓 4행과 같은 그리드로 나눠 각 행 세로 중앙에 링 하나씩 */}
+        <div className="relative z-10 grid grid-rows-4 gap-1.5 sm:gap-2 place-items-center -ml-0.5 shrink-0">
+          {[0, 1, 2, 3].map((i) => (
             <span
               key={i}
               className="w-3.5 h-3.5 rounded-full bg-[radial-gradient(circle_at_35%_30%,#fff,#c3c8d0_60%,#8a8f98)] shadow-[0_2px_4px_rgba(0,0,0,0.45)] ring-1 ring-black/20"
@@ -179,11 +179,15 @@ function BadgeGlyph({ glyph, accent, className }: { glyph: string; accent: strin
   );
 }
 
-/** 스티커 카드 (포켓 안) — 완전한 원형 뱃지(비율 유지, 가용 높이에 맞춰 축소) + 아래 이름 (안 겹침) */
+/**
+ * 스티커 카드 (포켓 안) — 흰 배경 카드 + 뱃지/이미지 + 아래 이름.
+ * 흰 배경은 방 아트가 스케치 플레이스홀더라 일단 유지(어떤 아트든 뱃지가 일관되게 보임).
+ * 최종 방 아트 확정 후, 투명 배경으로 뺄지 여기서 결정 (bg-white 제거 + 이름색 밝게).
+ */
 function StickerCard({ sbt, accent }: { sbt: Sbt; accent: string }) {
   return (
     <div className="relative h-full w-full rounded-[5px] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.28)] p-1 flex flex-col gap-0.5">
-      {/* 뱃지 — 남은 높이에 맞춰 축소된 완전한 원 (잘라내기 없음) */}
+      {/* 뱃지/이미지 — 비율 유지, 잘라내기 없음 */}
       <div className="flex-1 min-h-0 flex items-center justify-center">
         {sbt.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -193,7 +197,7 @@ function StickerCard({ sbt, accent }: { sbt: Sbt; accent: string }) {
         )}
       </div>
 
-      {/* 이름 (뱃지 아래, 겹치지 않음) */}
+      {/* 이름 (뱃지 아래) */}
       <div className="shrink-0 text-center text-[7px] font-bold text-neutral-800 truncate leading-tight">{sbt.title}</div>
     </div>
   );
@@ -240,11 +244,13 @@ function StickerDetail({ picked, onClose }: { picked: Picked; onClose: () => voi
             <p className="mt-1.5 text-neutral-500 text-sm leading-snug">{sbt.description}</p>
           </div>
 
-          {/* 획득 날짜 */}
-          <div className="mt-1 flex flex-col items-center gap-0.5 border-t border-neutral-100 pt-3 w-full">
-            <span className="text-[10px] tracking-[0.22em] text-neutral-400 font-semibold uppercase">Acquired</span>
-            <span className="text-neutral-700 text-sm font-medium">{formatDate(sbt.acquiredAt)}</span>
-          </div>
+          {/* 획득 날짜 — 데이터가 있을 때만 표시 (Renaiss 공개 API엔 SBT 날짜가 없어 실데이터에선 숨김) */}
+          {sbt.acquiredAt && (
+            <div className="mt-1 flex flex-col items-center gap-0.5 border-t border-neutral-100 pt-3 w-full">
+              <span className="text-[10px] tracking-[0.22em] text-neutral-400 font-semibold uppercase">Acquired</span>
+              <span className="text-neutral-700 text-sm font-medium">{formatDate(sbt.acquiredAt)}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
