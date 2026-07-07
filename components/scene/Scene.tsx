@@ -7,6 +7,7 @@ import { LoginIntro } from "./LoginIntro";
 import { ObjectScreen } from "./ObjectScreen";
 import { OverlayEditor } from "./OverlayEditor";
 import { OverlayQuad } from "./OverlayQuad";
+import { SnackCrumple } from "./SnackCrumple";
 
 /**
  * 방 씬.
@@ -22,6 +23,7 @@ export function Scene() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [active, setActive] = useState<SpotId | null>(null);
   const [hovered, setHovered] = useState<SpotId | null>(null); // 호버 중인 스팟 — 오버레이(액자 사진) pop용
+  const [crumpleId, setCrumpleId] = useState(0); // 과자봉지 이스터에그 — 클릭마다 +1, key로 리마운트해 재생
   const sceneRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState(""); // 로그인 연출(폰 줌)에만 사용
   // 개발용: ?edit 쿼리로 오버레이(액자 사진) 위치·크기·기울기를 직접 드래그해 맞추는 편집기
@@ -39,6 +41,11 @@ export function Scene() {
     // 외부 링크 스팟(예: 피규어 → 르네 트위터): 화면을 열지 않고 새 탭으로 이동
     if (spot.href) {
       window.open(spot.href, "_blank", "noopener,noreferrer");
+      return;
+    }
+    // 과자봉지 이스터에그: 화면을 열지 않고 그 자리에서 구겨지는 모션만 재생
+    if (spot.id === "snack") {
+      setCrumpleId((n) => n + 1);
       return;
     }
     if (spot.id === "phone" && !loggedIn) {
@@ -68,6 +75,7 @@ export function Scene() {
   const logout = () => {
     setLoggedIn(false);
     setEntered(false);
+    setCrumpleId(0); // 남은 크럼플 복제본이 어두워진 방 위에 밝은 조각으로 뜨지 않게 정리
     close();
   };
 
@@ -133,6 +141,9 @@ export function Scene() {
             />
           );
         })}
+
+        {/* 과자봉지 구겨짐 — 핫스팟 위에 얹는 모션 레이어 (클릭마다 key가 바뀌어 재시작, 끝나면 내려감) */}
+        {crumpleId > 0 && <SnackCrumple key={crumpleId} onDone={() => setCrumpleId(0)} />}
 
         {/* 개발용 오버레이 편집기 (?edit) — 아무 스팟이나 네 꼭짓점을 드래그해 치수 확정.
             key로 스팟 전환 시 편집기를 리마운트해 상태를 새 스팟 값으로 초기화. */}

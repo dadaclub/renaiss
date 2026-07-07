@@ -1,7 +1,7 @@
 /** 핫스팟 좌표 설정 — 이미지(room4.png, 정사각) 기준 %. 좌표 수정은 이 파일에서만. */
 import type { Corners } from "./quad";
 
-export type SpotId = "cabinet" | "computer" | "phone" | "photo" | "album" | "note" | "figure";
+export type SpotId = "cabinet" | "computer" | "phone" | "photo" | "album" | "note" | "figure" | "snack";
 
 /** 르네시스 트위터(X) — 피규어 클릭 시 이동 */
 export const RENE_TWITTER_URL = "https://x.com/renaissxyz";
@@ -25,7 +25,6 @@ export interface Spot {
 }
 
 // room4 라벨 기준 배치. 클릭 시 새 화면(ObjectScreen)이 뜨므로 좌표는 클릭 영역용.
-// 아직 없는 오브젝트(과자)는 해당 기능 구현 시 추가.
 export const SPOTS: Spot[] = [
   { id: "cabinet",  label: "Card storage", area: { left: 1,  top: 6,  width: 27, height: 47 }, zoom: { cx: 0.14, cy: 0.29, scale: 2.2 } },
   // 컴퓨터 화면 quad(측정 완료) — 나중에 모니터에 액자처럼 사진 얹을 때 아래 overlay 주석을 살리고 src만 교체.
@@ -39,6 +38,8 @@ export const SPOTS: Spot[] = [
   { id: "album",    label: "Album",        area: { left: 62, top: 68, width: 34, height: 24 }, zoom: { cx: 0.79, cy: 0.80, scale: 2.2 } },
   // 오른쪽 선반 가운데 피규어 → 르네 트위터(외부 링크). zoom은 미사용(href 스팟).
   { id: "figure",   label: "Rene on X",    area: { left: 84, top: 26, width: 8,  height: 9  }, zoom: { cx: 0.88, cy: 0.30, scale: 2.5 }, href: RENE_TWITTER_URL },
+  // 바닥 과자봉지 — 이스터에그. 화면 없이 구겨지는 모션만 재생(SnackCrumple). zoom 미사용.
+  { id: "snack",    label: "Snack bag",    area: { left: 31, top: 79, width: 16, height: 12 }, zoom: { cx: 0.39, cy: 0.85, scale: 2.6 } },
 ];
 
 export const IMG_ASPECT = 1;
