@@ -13,9 +13,18 @@ body {
   background: radial-gradient(ellipse 75% 75% at 50% 45%, #1a1233, #0a0716 62%, #050409);
 }
 
-/* 방 오브젝트(핫스팟) 위 커서 — 르네 포켓볼 아이콘 (로드 실패 시 pointer로 폴백) */
+/* 커서 — 화면 전체 네온 퍼플 화살표(24px, 로드 실패 시 기본 폴백). hotspot = 화살표 tip(4,2).
+   대안: 포켓볼(원본 public/mouse_cursor_v2_48.png)로 되돌릴 수 있음. */
+html,
+body {
+  cursor: url("/cursor-neon-arrow.svg") 4 2, auto;
+}
+/* 클릭 가능 요소도 같은 포켓볼(손가락 폴백) */
+a,
+button:enabled,
+[role="button"],
 .hotspot-cursor:enabled {
-  cursor: url("/mouse_cursor_v2_48.png") 24 24, pointer;
+  cursor: url("/cursor-neon-arrow.svg") 4 2, pointer;
 }
 
 /* 로그인 인트로 — 울리는 핸드폰 흔들림 */
