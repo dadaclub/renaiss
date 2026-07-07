@@ -2,7 +2,10 @@
 import { useEffect, useRef, useState } from "react";
 import { SpeakerHigh, SpeakerSlash } from "@phosphor-icons/react";
 
-/** 로그인 후 방에서 계속 도는 배경음악 — 우하단 아이콘으로 음소거 토글. */
+const TARGET_VOLUME = 0.35;
+const FADE_IN_MS = 2500;
+
+/** 로그인 후 방에서 계속 도는 배경음악 — 시작할 때 갑자기 크게 들리지 않도록 서서히 커진다. 우하단 아이콘으로 음소거 토글. */
 export function BackgroundMusic({ active }: { active: boolean }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [muted, setMuted] = useState(false);
@@ -11,7 +14,7 @@ export function BackgroundMusic({ active }: { active: boolean }) {
     if (!audioRef.current) {
       audioRef.current = new Audio("/sounds/bgm.mp3");
       audioRef.current.loop = true;
-      audioRef.current.volume = 0.35;
+      audioRef.current.volume = 0;
     }
     audioRef.current.muted = muted;
   }, [muted]);
@@ -20,11 +23,19 @@ export function BackgroundMusic({ active }: { active: boolean }) {
     const audio = audioRef.current;
     if (!audio) return;
     if (active) {
+      audio.volume = 0;
       // 브라우저 자동재생 정책으로 막히면, 다음 클릭(어디든) 때 한 번 더 시도
       audio.play().catch(() => {
         const retry = () => audio.play().catch(() => {});
         document.addEventListener("pointerdown", retry, { once: true });
       });
+      const start = performance.now();
+      let raf = requestAnimationFrame(function fade(now) {
+        const t = Math.min((now - start) / FADE_IN_MS, 1);
+        audio.volume = t * TARGET_VOLUME;
+        if (t < 1) raf = requestAnimationFrame(fade);
+      });
+      return () => cancelAnimationFrame(raf);
     } else {
       audio.pause();
       audio.currentTime = 0;
