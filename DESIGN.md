@@ -37,7 +37,7 @@
 | 핫스팟 호버 팝 | 클립 복제 scale 1 → 1.05 + opacity, 0.2s |
 | 핫스팟 글로우 | opacity 0.3s (hover 시) |
 | 울리는 핸드폰 | `animate-ring` (ring-shake 0.85s infinite, globals.css) |
-| 입장 온보딩 (핫스팟 순차 반짝) | `animate-glow-once` 0.9s + 스팟당 0.18s 스태거, 방 밝아진 0.9s 뒤 시작 |
+| 진입 스플래시 탭 힌트 | `animate-tap-hint` (opacity 0.55↔1, 2.4s infinite, globals.css) |
 | 호버 (카드 아이템) | translateX(3px) + 배경 밝아짐, Tailwind 기본 0.15s |
 
 ## 컴포넌트 규칙 (components/ui 먼저 재사용)

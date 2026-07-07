@@ -32,11 +32,11 @@ body {
   transform-origin: 50% 88%;
 }
 
-/* 입장 온보딩 — 로그인 직후 핫스팟이 순서대로 한 번씩 반짝 */
-@keyframes glow-once {
-  0%, 100% { opacity: 0; }
-  35%, 55% { opacity: 1; }
+/* 진입 스플래시 — "화면을 탭해서 입장" 안내가 은은히 숨쉬며 탭을 유도한다. */
+@keyframes tap-hint {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
 }
-.animate-glow-once {
-  animation: glow-once 0.9s ease-in-out both;
+.animate-tap-hint {
+  animation: tap-hint 2.4s ease-in-out infinite;
 }
