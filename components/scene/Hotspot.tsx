@@ -66,7 +66,7 @@ export function Hotspot({
               backgroundSize: `${10000 / width}% ${10000 / height}%`,
               backgroundPosition: `${(left / (100 - width)) * 100}% ${(top / (100 - height)) * 100}%`,
             }}
-            className="absolute inset-0 rounded-[inherit] animate-ring motion-reduce:animate-none [mask-image:radial-gradient(ellipse_at_center,black_55%,transparent_92%)] pointer-events-none"
+            className="absolute inset-0 rounded-[inherit] opacity-0 animate-ring motion-reduce:animate-none [mask-image:radial-gradient(ellipse_at_center,black_55%,transparent_92%)] pointer-events-none"
           />
         </>
       )}

@@ -40,7 +40,11 @@ button:enabled,
   40% { transform: rotate(1.5deg); }
 }
 .animate-ring {
-  animation: ring-shake 2.2s ease-in-out 1.2s infinite;
+  /* 클론은 밝은 원본 이미지 조각이라, 방이 밝아지기 전에 보이면 밝은 네모로 뜬다.
+     fade-in(1.2s 지연)으로 방 밝아짐(0.9s)이 끝난 뒤에야 나타나게 함 */
+  animation:
+    fade-in 0.3s ease-out 1.2s both,
+    ring-shake 2.2s ease-in-out 1.2s infinite;
   transform-origin: 50% 88%;
 }
 
