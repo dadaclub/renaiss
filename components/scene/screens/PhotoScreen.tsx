@@ -37,7 +37,7 @@ export function PhotoScreen({ onClose }: { onClose: () => void }) {
   return (
     <ScreenShell title="Photo" onClose={onClose}>
       {/* 얇은 흰 액자 — 사진을 그 안에 끼운 프린트처럼 */}
-      <figure className="w-[min(88vw,560px)] overflow-hidden rounded-[4px] border-[3px] border-cream shadow-[0_24px_60px_-12px_rgba(0,0,0,0.7)]">
+      <figure className="w-[min(94vw,840px)] overflow-hidden rounded-[4px] border-[3px] border-cream shadow-[0_24px_60px_-12px_rgba(0,0,0,0.7)]">
         <div
           className="relative leading-none [&:hover>img]:cursor-none"
           onMouseMove={handleMove}

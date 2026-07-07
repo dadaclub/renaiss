@@ -6,14 +6,18 @@ interface Props {
   disabled: boolean;
   /** 호버 팝(5% 확대) 활성화 — 로그인 후에만 (어두운 방에선 복제본이 밝게 떠서 분위기 깨짐) */
   pop?: boolean;
+  /** 호버 상태 알림 — Scene이 오버레이(액자 사진) pop에 사용 */
+  onHover?: (spot: Spot, hovering: boolean) => void;
   onSelect: (spot: Spot) => void;
 }
 
-export function Hotspot({ spot, disabled, pop = false, onSelect }: Props) {
+export function Hotspot({ spot, disabled, pop = false, onHover, onSelect }: Props) {
   const { left, top, width, height } = spot.area;
   return (
     <button
       onClick={() => onSelect(spot)}
+      onMouseEnter={() => onHover?.(spot, true)}
+      onMouseLeave={() => onHover?.(spot, false)}
       disabled={disabled}
       aria-label={spot.label}
       style={{ left: `${left}%`, top: `${top}%`, width: `${width}%`, height: `${height}%` }}

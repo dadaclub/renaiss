@@ -15,11 +15,14 @@ export function OverlayQuad({
   corners,
   sceneRef,
   className = "",
+  hovered = false,
 }: {
   src: string;
   corners: Corners;
   sceneRef: RefObject<HTMLDivElement | null>;
   className?: string;
+  /** 핫스팟 호버 시 사진째로 살짝 확대(pop) */
+  hovered?: boolean;
 }) {
   const { width, height } = useElementSize(sceneRef);
   if (!width || !height) return null;
@@ -38,8 +41,16 @@ export function OverlayQuad({
       }}
       className={`pointer-events-none select-none ${className}`}
     >
+      {/* 호버 시 중심 기준 5% 확대 — matrix로 프레임 원근에 맞춰 투영됨 */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt="" draggable={false} className="block w-full h-full select-none" />
+      <img
+        src={src}
+        alt=""
+        draggable={false}
+        className={`block w-full h-full select-none origin-center transition-transform duration-200 motion-reduce:transition-none ${
+          hovered ? "scale-[1.05]" : "scale-100"
+        }`}
+      />
     </div>
   );
 }
