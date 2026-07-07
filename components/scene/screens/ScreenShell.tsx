@@ -1,5 +1,6 @@
 "use client";
 import { ReactNode } from "react";
+import { ArrowLeft } from "@phosphor-icons/react";
 import { ROOM_IMG } from "@/lib/spots";
 
 /**
@@ -38,9 +39,10 @@ export function ScreenShell({
 
       <button
         onClick={onClose}
-        className="fixed top-6 left-6 z-10 bg-glass border border-glassline text-cream text-xs font-bold px-4 py-2.5 rounded-full backdrop-blur-md hover:border-amber hover:text-amber transition-colors"
+        className="fixed top-6 left-6 z-10 inline-flex items-center gap-1.5 bg-glass border border-glassline text-cream text-xs font-bold px-4 py-2.5 rounded-full backdrop-blur-md hover:border-amber hover:text-amber transition-colors"
       >
-        ← Back to room
+        <ArrowLeft size={14} weight="bold" aria-hidden />
+        Back to room
       </button>
       <div className="relative flex-1 flex flex-col items-center justify-center gap-5 px-6">
         {children}

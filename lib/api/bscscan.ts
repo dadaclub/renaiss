@@ -118,7 +118,8 @@ export async function getSbtsFromContract(contract: string, wallet: string): Pro
     if ((tx.from ?? "").toLowerCase() === w) owned.delete(id);
   }
 
-  const ids = [...owned].slice(0, 12);
+  // Set 전개([...owned])는 tsconfig target(es5)에서 컴파일 불가 — Array.from 사용
+  const ids = Array.from(owned).slice(0, 12);
   return Promise.all(
     ids.map(async (tokenId): Promise<OnchainSbt> => {
       try {

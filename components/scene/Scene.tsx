@@ -111,7 +111,7 @@ export function Scene() {
           }`}
         />
 
-        {SPOTS.map((s) => {
+        {SPOTS.map((s, i) => {
           const isPhone = s.id === "phone";
           // 로그인 전엔 폰만(로그인 게이트), 로그인 후엔 전부. 화면 열림(active) 중엔 잠금.
           const enabled = (loggedIn ? true : isPhone) && !active && !edit;
@@ -123,6 +123,9 @@ export function Scene() {
               // 오버레이 사진이 있는 스팟(액자)은 빈 프레임 복제 팝이 사진을 덮으므로 끔
               // (대신 OverlayQuad가 hovered로 사진째 확대됨)
               pop={entered && !s.overlay}
+              // 로그인 직후 오브젝트들이 차례로 한 번씩 빛남 — "이제 눌러볼 수 있다"는 피드백
+              wake={loggedIn}
+              wakeDelay={i * 0.12}
               onHover={(sp, h) => setHovered(h ? sp.id : (cur) => (cur === sp.id ? null : cur))}
               onSelect={select}
             />
@@ -141,27 +144,31 @@ export function Scene() {
         )}
       </div>
 
-      {/* 진입 스플래시 — 어둡게 깔린 방 위 브랜딩 + 비네트. 화면 아무 곳이나 탭하면 방으로 입장(밝아짐).
-          로그인은 방 안에서 폰을 눌러야 진행된다. 입장(entered)하면 페이드아웃한다. */}
+      {/* 진입 스플래시 — 어두운 방과 폰 불빛이 주인공, 브랜딩은 좌하단에 비켜서 있음.
+          화면 아무 곳이나 탭하면 방으로 입장(밝아짐). 로그인은 방 안에서 폰을 눌러야 진행된다.
+          입장(entered)하면 페이드아웃한다. */}
       {!edit && (
         <button
           type="button"
           onClick={() => setEntered(true)}
           aria-label="Tap to enter the room"
-          className={`absolute inset-0 z-40 flex flex-col items-center justify-center text-center transition-opacity duration-[900ms] ${
+          className={`absolute inset-0 z-40 block text-left transition-opacity duration-[900ms] ${
             entered || active ? "opacity-0 pointer-events-none" : "opacity-100"
           }`}
-          style={{
-            background:
-              "radial-gradient(ellipse 72% 55% at 50% 44%, rgba(4,3,6,0) 0%, rgba(4,3,6,0.5) 62%, rgba(2,1,3,0.92) 100%), linear-gradient(to bottom, rgba(2,1,3,0.96) 0%, rgba(2,1,3,0) 24%, rgba(2,1,3,0) 76%, rgba(2,1,3,0.96) 100%)",
-          }}
         >
-          <span className="text-amber text-[11px] font-semibold uppercase tracking-[0.42em]">
-            Card Scene
-          </span>
-          <span className="mt-3 text-cream font-serif text-5xl leading-none">카드씬</span>
-          <span className="mt-6 text-creamdim/80 text-sm tracking-wide animate-tap-hint motion-reduce:animate-none">
-            화면을 탭해서 내 방으로 입장하기
+          {/* 비네트 — 가운데 아래(폰 불빛 자리)는 열어두고 가장자리로 갈수록 어둡게 */}
+          <span
+            aria-hidden
+            className="absolute inset-0 bg-[radial-gradient(ellipse_70%_58%_at_50%_58%,theme(colors.bg/0%),theme(colors.bg/55%)_62%,theme(colors.bg/95%)),linear-gradient(to_bottom,theme(colors.bg/95%),theme(colors.bg/0%)_22%,theme(colors.bg/0%)_72%,theme(colors.bg/95%))]"
+          />
+          <span className="absolute left-7 bottom-7 sm:left-12 sm:bottom-12 flex flex-col items-start">
+            <span className="text-cream font-serif text-5xl sm:text-6xl leading-none">CardScene</span>
+            <span className="mt-3 text-creamdim text-sm sm:text-base">
+              A room for your TCG collection.
+            </span>
+            <span className="mt-5 text-amber text-[12px] font-semibold uppercase tracking-[0.22em] animate-tap-hint motion-reduce:animate-none">
+              Tap anywhere to step inside
+            </span>
           </span>
         </button>
       )}

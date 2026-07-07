@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { CheckCircle, LockSimple } from "@phosphor-icons/react";
 
 /**
  * 로그인 — 방 안 핸드폰에 줌인된 뒤 그 위로 뜬다.
@@ -35,7 +36,7 @@ export function LoginIntro({ onLogin, onCancel }: { onLogin: () => void; onCance
       aria-label="Log in with Renaiss"
       className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(4,3,10,0.4)] backdrop-blur-[2px]"
     >
-      <div className="w-[320px] rounded-[2rem] bg-[#0e0b1a] border border-glassline shadow-[0_20px_60px_rgba(0,0,0,0.6)] p-6">
+      <div className="w-[320px] rounded-panel bg-glass backdrop-blur-md border border-glassline shadow-[0_20px_60px_rgba(0,0,0,0.6)] p-6">
         {/* 브랜드 헤더 */}
         <div className="text-center mb-5">
           <div className="w-16 h-16 mx-auto rounded-full bg-white border border-amber/40 overflow-hidden mb-3 flex items-center justify-center">
@@ -68,13 +69,16 @@ export function LoginIntro({ onLogin, onCancel }: { onLogin: () => void; onCance
             {/* 권한(읽기 전용) */}
             <ul className="text-[11px] text-creamdim/80 space-y-1.5">
               <li className="flex items-center gap-2">
-                <span className="text-amber">✓</span> View your public card collection
+                <CheckCircle size={14} weight="bold" className="shrink-0 text-amber" aria-hidden />
+                View your public card collection
               </li>
               <li className="flex items-center gap-2">
-                <span className="text-amber">✓</span> View on-chain transaction history
+                <CheckCircle size={14} weight="bold" className="shrink-0 text-amber" aria-hidden />
+                View on-chain transaction history
               </li>
               <li className="flex items-center gap-2">
-                <span className="text-creamdim/50">🔒</span> Read-only — never sends transactions
+                <LockSimple size={14} weight="fill" className="shrink-0 text-creamdim/60" aria-hidden />
+                Read-only. Never sends transactions
               </li>
             </ul>
 

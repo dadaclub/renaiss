@@ -18,9 +18,9 @@ const config: Config = {
         inkdark: "#17102E",
       },
       fontFamily: {
-        sans: ["Fredoka", "sans-serif"],
-        serif: ["'Noto Serif KR'", "serif"],
-        hand: ["'Gochi Hand'", "cursive"],
+        sans: ["var(--font-fredoka)", "sans-serif"],
+        serif: ["var(--font-noto-serif-kr)", "serif"],
+        hand: ["var(--font-gochi-hand)", "cursive"],
       },
       transitionTimingFunction: {
         camera: "cubic-bezier(0.32, 0.72, 0.25, 1)",

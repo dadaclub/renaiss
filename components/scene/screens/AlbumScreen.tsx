@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useEffect } from "react";
+import { CaretLeft, CaretRight, Warning, X } from "@phosphor-icons/react";
 import { ScreenShell } from "./ScreenShell";
 
 /**
@@ -32,9 +33,9 @@ const MOCK_SBTS: Sbt[] = [
   { id: 9, title: "Genesis", description: "Minted at genesis.", glyph: "✺", color: "#7FE8D8", acquiredAt: "2024-11-11" },
 ];
 
-/** ISO 날짜 → "Mar 21, 2024" 표기. 없으면 대시. */
+/** ISO 날짜 → "Mar 21, 2024" 표기. 없으면 빈 문자열(호출부에서 acquiredAt 있을 때만 표시). */
 function formatDate(iso?: string): string {
-  if (!iso) return "—";
+  if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
@@ -107,8 +108,9 @@ function StickerBinder({
     <div className="w-[min(92vw,540px)]">
       {/* 폴백 배너는 흐름 밖(상단 고정)으로 빼서 바인더가 화면 정중앙에 오게 함 */}
       {fallback && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-20 text-center text-[10px] font-semibold text-cream/80 whitespace-nowrap">
-          ⚠ Sample badges — set a Renaiss profile for live SBTs
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-20 inline-flex items-center gap-1.5 text-[10px] font-semibold text-cream/80 whitespace-nowrap">
+          <Warning size={12} weight="fill" className="shrink-0 text-down" aria-hidden />
+          Sample badges. Set a Renaiss profile for live SBTs
         </div>
       )}
 
@@ -142,7 +144,7 @@ function StickerBinder({
                   <button
                     type="button"
                     onClick={() => onPick({ sbt: s, accent })}
-                    aria-label={`${s.title} — view details`}
+                    aria-label={`${s.title}, view details`}
                     className="group h-full w-full rounded-[5px] outline-none focus-visible:ring-2 focus-visible:ring-amber transition-transform duration-150 hover:-translate-y-0.5 hover:scale-[1.03]"
                   >
                     <StickerCard sbt={s} accent={accent} />
@@ -162,9 +164,9 @@ function StickerBinder({
             onClick={() => setPage(Math.max(0, curPage - 1))}
             disabled={curPage === 0}
             aria-label="Previous page"
-            className="w-8 h-8 rounded-full bg-glass border border-glassline text-cream backdrop-blur-md flex items-center justify-center text-lg leading-none hover:border-amber hover:text-amber transition-colors disabled:opacity-35 disabled:pointer-events-none"
+            className="w-8 h-8 rounded-full bg-glass border border-glassline text-cream backdrop-blur-md flex items-center justify-center hover:border-amber hover:text-amber transition-colors disabled:opacity-35 disabled:pointer-events-none"
           >
-            ‹
+            <CaretLeft size={15} weight="bold" aria-hidden />
           </button>
           <span className="text-cream/80 text-xs font-semibold tabular-nums">
             {curPage + 1} / {pageCount}
@@ -174,9 +176,9 @@ function StickerBinder({
             onClick={() => setPage(Math.min(pageCount - 1, curPage + 1))}
             disabled={curPage === pageCount - 1}
             aria-label="Next page"
-            className="w-8 h-8 rounded-full bg-glass border border-glassline text-cream backdrop-blur-md flex items-center justify-center text-lg leading-none hover:border-amber hover:text-amber transition-colors disabled:opacity-35 disabled:pointer-events-none"
+            className="w-8 h-8 rounded-full bg-glass border border-glassline text-cream backdrop-blur-md flex items-center justify-center hover:border-amber hover:text-amber transition-colors disabled:opacity-35 disabled:pointer-events-none"
           >
-            ›
+            <CaretRight size={15} weight="bold" aria-hidden />
           </button>
         </div>
       )}
@@ -255,9 +257,9 @@ function StickerDetail({ picked, onClose }: { picked: Picked; onClose: () => voi
         <button
           onClick={onClose}
           aria-label="Close"
-          className="absolute top-2.5 right-2.5 w-7 h-7 rounded-full bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800 transition-colors flex items-center justify-center text-sm leading-none"
+          className="absolute top-2.5 right-2.5 w-7 h-7 rounded-full bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800 transition-colors flex items-center justify-center"
         >
-          ✕
+          <X size={14} weight="bold" aria-hidden />
         </button>
 
         <div className="flex flex-col items-center text-center gap-3 pt-2">
