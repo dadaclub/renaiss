@@ -21,6 +21,7 @@ export function Scene() {
   const [entered, setEntered] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
   const [active, setActive] = useState<SpotId | null>(null);
+  const [hovered, setHovered] = useState<SpotId | null>(null); // 호버 중인 스팟 — 오버레이(액자 사진) pop용
   const sceneRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState(""); // 로그인 연출(폰 줌)에만 사용
   // 개발용: ?edit 쿼리로 오버레이(액자 사진) 위치·크기·기울기를 직접 드래그해 맞추는 편집기
@@ -96,6 +97,8 @@ export function Scene() {
               src={s.overlay.src}
               corners={s.overlay.corners}
               sceneRef={sceneRef}
+              // 핫스팟 호버 시 사진째로 살짝 확대(pop) — 다른 오브젝트와 동일한 느낌
+              hovered={loggedIn && !active && hovered === s.id}
               className="shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
             />
           ) : null
@@ -118,7 +121,9 @@ export function Scene() {
               spot={s}
               disabled={!enabled}
               // 오버레이 사진이 있는 스팟(액자)은 빈 프레임 복제 팝이 사진을 덮으므로 끔
+              // (대신 OverlayQuad가 hovered로 사진째 확대됨)
               pop={entered && !s.overlay}
+              onHover={(sp, h) => setHovered(h ? sp.id : (cur) => (cur === sp.id ? null : cur))}
               onSelect={select}
             />
           );

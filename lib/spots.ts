@@ -33,7 +33,7 @@ export const SPOTS: Spot[] = [
   { id: "computer", label: "Computer",     area: { left: 48, top: 21, width: 19, height: 19 }, zoom: { cx: 0.58, cy: 0.30, scale: 2.4 } },
   { id: "photo",    label: "Photo frame",  area: { left: 69, top: 2,  width: 28, height: 23 }, zoom: { cx: 0.83, cy: 0.13, scale: 2.3 },
     // 벽 액자 안쪽 개구부 네 꼭짓점에 사진을 끼워 넣음. 클릭하면 PhotoScreen으로 확대.
-    overlay: { src: "/picture_v1_cdither_g24_l4.jpg", corners: { tl: [73.9, 4.1], tr: [96.8, 8.6], br: [96.6, 24.2], bl: [73.9, 18.6] } } },
+    overlay: { src: "/picture_v1_cdither_g2_l4.jpg", corners: { tl: [73.9, 4.1], tr: [96.8, 8.6], br: [96.6, 24.2], bl: [73.9, 18.6] } } },
   { id: "note",     label: "Guestbook",    area: { left: 5,  top: 70, width: 22, height: 22 }, zoom: { cx: 0.16, cy: 0.80, scale: 2.5 } },
   { id: "phone",    label: "Phone",        area: { left: 48, top: 72, width: 8,  height: 15 }, zoom: { cx: 0.52, cy: 0.79, scale: 3.0 } },
   { id: "album",    label: "Album",        area: { left: 62, top: 68, width: 34, height: 24 }, zoom: { cx: 0.79, cy: 0.80, scale: 2.2 } },
