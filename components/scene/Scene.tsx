@@ -1,11 +1,12 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { SPOTS, Spot, SpotId, ROOM_IMG, PHONE_GLOW } from "@/lib/spots";
+import { SPOTS, Spot, SpotId, ROOM_IMG } from "@/lib/spots";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 import { Hotspot } from "./Hotspot";
 import { LoginIntro } from "./LoginIntro";
 import { ObjectScreen } from "./ObjectScreen";
 import { OverlayEditor } from "./OverlayEditor";
+import { OverlayQuad } from "./OverlayQuad";
 
 /**
  * 방 씬.
@@ -15,23 +16,23 @@ import { OverlayEditor } from "./OverlayEditor";
  * - 핸드폰(로그인 후): 로그아웃 화면.
  */
 export function Scene() {
+  // entered = 스플래시를 탭해 방으로 입장(밝아짐). loggedIn = 방 안에서 폰을 눌러 로그인 완료.
+  // 입장했지만 로그인 전엔 폰만 클릭 가능(로그인 게이트), 로그인해야 나머지 오브젝트가 열린다.
   const [entered, setEntered] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(false);
   const [active, setActive] = useState<SpotId | null>(null);
-  const [intro, setIntro] = useState(false); // 입장 온보딩 — 핫스팟 순차 반짝
   const sceneRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState(""); // 로그인 연출(폰 줌)에만 사용
   // 개발용: ?edit 쿼리로 오버레이(액자 사진) 위치·크기·기울기를 직접 드래그해 맞추는 편집기
   const [edit, setEdit] = useState(false);
+  const [editSpotId, setEditSpotId] = useState<SpotId>("photo"); // 편집기에서 치수 재는 대상 스팟
   useEffect(() => {
     if (new URLSearchParams(window.location.search).has("edit")) {
       setEdit(true);
-      setEntered(true); // 편집 중엔 로그인 연출 건너뛰고 밝은 방 바로 표시
+      setEntered(true); // 편집 중엔 스플래시/로그인 건너뛰고 밝은 방 바로 표시
+      setLoggedIn(true); // 편집 중엔 모든 오브젝트 활성화
     }
   }, []);
-
-  const INTRO_START = 900; // 방 밝아지는 시간과 동기화
-  const INTRO_STAGGER = 0.18; // 스팟당 딜레이(초)
-  const INTRO_GLOW = 900; // glow-once 애니메이션 길이(ms)
 
   const select = (spot: Spot) => {
     // 외부 링크 스팟(예: 피규어 → 르네 트위터): 화면을 열지 않고 새 탭으로 이동
@@ -39,7 +40,7 @@ export function Scene() {
       window.open(spot.href, "_blank", "noopener,noreferrer");
       return;
     }
-    if (spot.id === "phone" && !entered) {
+    if (spot.id === "phone" && !loggedIn) {
       // 로그인 연출: 핸드폰으로 줌인 (이것만 카메라 이동. 나머지는 새 화면을 위에 띄움)
       const el = sceneRef.current;
       if (el) {
@@ -59,18 +60,13 @@ export function Scene() {
 
   const login = () => {
     setEntered(true);
+    setLoggedIn(true);
     close();
-    // 방이 밝아진 뒤 핫스팟을 순서대로 한 번씩 반짝여 위치를 알려줌
-    setTimeout(() => setIntro(true), INTRO_START);
-    setTimeout(
-      () => setIntro(false),
-      INTRO_START + SPOTS.length * INTRO_STAGGER * 1000 + INTRO_GLOW
-    );
   };
 
   const logout = () => {
+    setLoggedIn(false);
     setEntered(false);
-    setIntro(false);
     close();
   };
 
@@ -89,74 +85,38 @@ export function Scene() {
         <img src={ROOM_IMG} alt="My room (sketch)" className="block w-full h-full select-none" draggable={false} />
 
         {/* 방 아트 위에 얹는 오브젝트 사진 (예: 액자 속 사진).
-            사진이 놓일 자리에 딱 맞는 투명 박스(div)를 액자 기울기(skewY)에 맞춰 띄우고,
-            그 안에 이미지를 object-cover로 채워 넣는다(넘치는 부분은 박스가 클립).
+            액자 개구부 네 꼭짓점(corners)에 맞춰 원근(matrix3d)으로 사진을 끼워 넣는다.
             방 배경의 일부처럼 어둠 레이어 아래에 두어 로그인 연출과 함께 밝아짐.
             클릭은 위에 겹친 Hotspot 버튼이 받으므로 여기선 pointer-events 없음. */}
         {SPOTS.map((s) =>
           // 편집 중인 오버레이는 정적 렌더를 건너뛰고 OverlayEditor가 대신 그린다
-          s.overlay && !(edit && s.id === "photo") ? (
-            <div
+          s.overlay && !(edit && s.id === editSpotId) ? (
+            <OverlayQuad
               key={`overlay-${s.id}`}
-              aria-hidden
-              style={{
-                left: `${s.overlay.left}%`,
-                top: `${s.overlay.top}%`,
-                width: `${s.overlay.width}%`,
-                height: `${s.overlay.height}%`,
-                transform: `skewY(${s.overlay.skewY ?? 0}deg)`,
-              }}
-              className="absolute overflow-hidden pointer-events-none select-none shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={s.overlay.src}
-                alt=""
-                draggable={false}
-                className="block w-full h-full object-cover select-none"
-              />
-            </div>
+              src={s.overlay.src}
+              corners={s.overlay.corners}
+              sceneRef={sceneRef}
+              className="shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
+            />
           ) : null
         )}
 
-        {/* 로그인 전: 방 전체 어둡게 (핸드폰만 빛남) */}
+        {/* 로그인 전: 방 전체를 은은히 어둡게 (스플래시 비네트와 함께 무드 형성. 입장하면 페이드아웃) */}
         <div
-          className={`absolute inset-0 bg-[rgba(4,3,12,0.86)] transition-opacity duration-[900ms] pointer-events-none ${
+          className={`absolute inset-0 bg-[rgba(6,4,3,0.5)] transition-opacity duration-[900ms] pointer-events-none ${
             entered ? "opacity-0" : "opacity-100"
           }`}
         />
 
-        {/* 로그인 전 — 어둠 속에서 켜진 핸드폰 화면 불빛 (클릭영역과 별개, PHONE_GLOW 좌표).
-            ① 화면 사각형(폰 기울기만큼 회전) ② 그 빛이 바닥으로 번지는 블룸 */}
-        {!entered && !edit && (
-          <div
-            aria-hidden
-            className="absolute pointer-events-none"
-            style={{
-              left: `${PHONE_GLOW.left}%`,
-              top: `${PHONE_GLOW.top}%`,
-              width: `${PHONE_GLOW.width}%`,
-              height: `${PHONE_GLOW.height}%`,
-            }}
-          >
-            <span className="absolute left-1/2 top-1/2 w-[360%] h-[170%] rounded-full mix-blend-screen blur-[13px] animate-phone-bloom motion-reduce:animate-none bg-[radial-gradient(ellipse_at_center,rgba(206,224,255,0.5),rgba(150,185,255,0.22)_38%,transparent_70%)]" />
-            <span
-              className="absolute inset-0 rounded-[2px] mix-blend-screen blur-[1px] animate-phone-screen motion-reduce:animate-none bg-[linear-gradient(155deg,rgba(242,248,255,0.96),rgba(194,216,255,0.78))]"
-              style={{ transform: `rotate(${PHONE_GLOW.rotate}deg)` }}
-            />
-          </div>
-        )}
-
-        {SPOTS.map((s, i) => {
+        {SPOTS.map((s) => {
           const isPhone = s.id === "phone";
-          // 로그인 전엔 핸드폰만, 로그인 후엔 전부. 화면 열림(active) 중엔 잠금.
-          const enabled = (entered ? true : isPhone) && !active && !edit;
+          // 로그인 전엔 폰만(로그인 게이트), 로그인 후엔 전부. 화면 열림(active) 중엔 잠금.
+          const enabled = (loggedIn ? true : isPhone) && !active && !edit;
           return (
             <Hotspot
               key={s.id}
               spot={s}
               disabled={!enabled}
-              introDelay={intro ? i * INTRO_STAGGER : null}
               // 오버레이 사진이 있는 스팟(액자)은 빈 프레임 복제 팝이 사진을 덮으므로 끔
               pop={entered && !s.overlay}
               onSelect={select}
@@ -164,31 +124,48 @@ export function Scene() {
           );
         })}
 
-        {/* 개발용 오버레이 편집기 (?edit) — 액자 사진을 직접 드래그/리사이즈해 값 확정 */}
-        {edit &&
-          (() => {
-            const o = SPOTS.find((s) => s.id === "photo")?.overlay;
-            return o ? (
-              <OverlayEditor
-                src={o.src}
-                initial={{
-                  left: o.left,
-                  top: o.top,
-                  width: o.width,
-                  height: o.height,
-                  skewY: o.skewY ?? 0,
-                }}
-                sceneRef={sceneRef}
-              />
-            ) : null;
-          })()}
+        {/* 개발용 오버레이 편집기 (?edit) — 아무 스팟이나 네 꼭짓점을 드래그해 치수 확정.
+            key로 스팟 전환 시 편집기를 리마운트해 상태를 새 스팟 값으로 초기화. */}
+        {edit && (
+          <OverlayEditor
+            key={editSpotId}
+            spotId={editSpotId}
+            onSpotChange={setEditSpotId}
+            sceneRef={sceneRef}
+          />
+        )}
       </div>
 
-      {/* 로그인 폼 (핸드폰 줌인 상태) — 열면 바로 Authorize, Cancel은 방으로 */}
-      {!entered && active === "phone" && <LoginIntro onLogin={login} onCancel={close} />}
+      {/* 진입 스플래시 — 어둡게 깔린 방 위 브랜딩 + 비네트. 화면 아무 곳이나 탭하면 방으로 입장(밝아짐).
+          로그인은 방 안에서 폰을 눌러야 진행된다. 입장(entered)하면 페이드아웃한다. */}
+      {!edit && (
+        <button
+          type="button"
+          onClick={() => setEntered(true)}
+          aria-label="Tap to enter the room"
+          className={`absolute inset-0 z-40 flex flex-col items-center justify-center text-center transition-opacity duration-[900ms] ${
+            entered || active ? "opacity-0 pointer-events-none" : "opacity-100"
+          }`}
+          style={{
+            background:
+              "radial-gradient(ellipse 72% 55% at 50% 44%, rgba(4,3,6,0) 0%, rgba(4,3,6,0.5) 62%, rgba(2,1,3,0.92) 100%), linear-gradient(to bottom, rgba(2,1,3,0.96) 0%, rgba(2,1,3,0) 24%, rgba(2,1,3,0) 76%, rgba(2,1,3,0.96) 100%)",
+          }}
+        >
+          <span className="text-amber text-[11px] font-semibold uppercase tracking-[0.42em]">
+            Card Scene
+          </span>
+          <span className="mt-3 text-cream font-serif text-5xl leading-none">카드씬</span>
+          <span className="mt-6 text-creamdim/80 text-sm tracking-wide animate-tap-hint motion-reduce:animate-none">
+            화면을 탭해서 내 방으로 입장하기
+          </span>
+        </button>
+      )}
+
+      {/* 로그인 폼 — 방 안에서 폰을 눌렀을 때(로그인 전). 열면 바로 Authorize, Cancel은 방으로 */}
+      {!loggedIn && active === "phone" && <LoginIntro onLogin={login} onCancel={close} />}
 
       {/* 오브젝트 새 화면 (로그인 후) */}
-      {entered && active && <ObjectScreen spot={active} onClose={close} onLogout={logout} />}
+      {loggedIn && active && <ObjectScreen spot={active} onClose={close} onLogout={logout} />}
     </main>
   );
 }
