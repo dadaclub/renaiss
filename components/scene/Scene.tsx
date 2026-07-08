@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { SPOTS, Spot, SpotId, ROOM_IMG } from "@/lib/spots";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 import { BackgroundMusic } from "./BackgroundMusic";
+import { ClickSound } from "./ClickSound";
 import { Hotspot } from "./Hotspot";
 import { LoginIntro } from "./LoginIntro";
 import { ObjectScreen } from "./ObjectScreen";
@@ -188,6 +189,9 @@ export function Scene() {
 
       {/* 배경음악 — 로그인 후 계속 재생, 우하단 아이콘으로 음소거 토글 */}
       <BackgroundMusic active={loggedIn} />
+
+      {/* 전역 클릭음 — 모든 클릭 가능한 요소에 통일된 UI 클릭음 */}
+      <ClickSound />
     </main>
   );
 }
