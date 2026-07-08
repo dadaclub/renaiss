@@ -26,12 +26,17 @@ export interface OnePieceCard {
   imageUrl: string; // large 우선, 없으면 small
 }
 
+/** 이미지 URL에서 "카드코드_판본" 파일명 추출 (확장자·쿼리스트링 무관) — 예: ST01-007_p1 */
+function cardFileKey(imageUrl: string): string | null {
+  return imageUrl.match(/([A-Za-z0-9]+-[0-9]+(?:_p\d+)?)\.(?:png|jpe?g|webp)/i)?.[1]?.toUpperCase() ?? null;
+}
+
 function mapCards(data: { data?: ApiTcgCardRaw[] }): OnePieceCard[] {
   return (data.data ?? [])
     .map((c) => {
       const imageUrl = c.images?.large || c.images?.small || "";
       // id는 이미지 파일명 기준 (같은 코드의 판본들 OP01-016 / OP01-016_p1 을 구분 — React key 충돌 방지)
-      const file = imageUrl.match(/([A-Za-z0-9-]+(?:_p\d+)?)\.png/)?.[1];
+      const file = cardFileKey(imageUrl);
       return {
         id: file ?? c.code ?? c.id,
         name: c.name,
@@ -44,11 +49,12 @@ function mapCards(data: { data?: ApiTcgCardRaw[] }): OnePieceCard[] {
     .filter((c) => c.imageUrl);
 }
 
-/** 같은 이미지(쿼리스트링 무시)는 한 번만 */
+/** 같은 카드(코드+판본)는 한 번만 — 호스트/확장자가 달라도 같은 그림이면 중복.
+ *  파일명에서 코드를 못 뽑는 URL은 쿼리스트링 뗀 URL로 비교(기존 동작). */
 function dedupeByImage(cards: OnePieceCard[]): OnePieceCard[] {
   const seen = new Set<string>();
   return cards.filter((c) => {
-    const k = c.imageUrl.replace(/\?.*/, "");
+    const k = cardFileKey(c.imageUrl) ?? c.imageUrl.replace(/\?.*/, "");
     if (seen.has(k)) return false;
     seen.add(k);
     return true;
@@ -86,7 +92,7 @@ const OFFICIAL_HOSTS = ["en.onepiece-cardgame.com", "www.onepiece-cardgame.com"]
 
 async function probeMissingParallels(code: string, existing: OnePieceCard[]): Promise<OnePieceCard[]> {
   const have = new Set(
-    existing.map((c) => c.imageUrl.match(/_p(\d+)\.png/)?.[1] ?? "base")
+    existing.map((c) => c.imageUrl.match(/_p(\d+)\.(?:png|jpe?g|webp)/i)?.[1] ?? "base")
   );
   const baseName = existing[0]?.name ?? code;
 
