@@ -227,22 +227,10 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
               ))}
             </div>
             <span className="w-px h-4 bg-glassline" aria-hidden />
+            {/* 동기화는 Add card 모달의 From Renaiss 탭으로 통일 — 여기는 상태 표시만 */}
             <span className="text-[12px] text-creamdim font-semibold px-1">
               {syncing ? "Loading…" : synced ? `${visible.length} cards` : ""}
             </span>
-            <button
-              onClick={syncWallet}
-              disabled={syncing}
-              className="inline-flex items-center gap-1.5 text-[12px] font-bold px-3 py-1.5 rounded-full border border-glassline text-creamdim hover:text-cream transition-colors disabled:opacity-50"
-            >
-              <ArrowsClockwise
-                size={13}
-                weight="bold"
-                className={syncing ? "animate-spin motion-reduce:animate-none" : ""}
-                aria-hidden
-              />
-              Sync
-            </button>
           </div>
           {syncError && (
             <div className="flex items-center gap-2 text-[12px] font-semibold text-creamdim bg-glass/70 backdrop-blur-md border border-glassline rounded-full px-3.5 py-1.5">
