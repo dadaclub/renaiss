@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   ArrowsClockwise,
   Cards,
+  CaretDown,
   LinkSimple,
   Package,
   Plus,
@@ -99,6 +100,9 @@ interface OpSearchCard {
   rarity?: string;
   type?: string;
   setName?: string;
+  /** 전체 게임 검색 시 이 카드가 속한 게임/프랜차이즈 (서버가 채움) */
+  game?: string;
+  franchise?: string;
 }
 
 const TINTS = ["#38284A", "#22314A", "#1E3A38", "#46341E", "#1F3D2C"];
@@ -321,10 +325,10 @@ function RegisterModal({
   const [mode, setMode] = useState<CardOrigin>("onchain");
   const [name, setName] = useState("");
   const [grade, setGrade] = useState("");
-  const [franchise, setFranchise] = useState(APITCG_GAMES[0].franchise);
+  const [franchise, setFranchise] = useState("");
   const [imageUrl, setImageUrl] = useState("");
-  // TCG 카드 검색 (apitcg 프록시 /api/opcard) — 게임 선택 후 이름/코드로 검색
-  const [game, setGame] = useState(APITCG_GAMES[0]);
+  // TCG 카드 검색 (apitcg 프록시 /api/opcard) — 기본은 전체 게임, 드롭다운으로 한정 가능
+  const [gameId, setGameId] = useState<string>("all");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<OpSearchCard[]>([]);
   const [searching, setSearching] = useState(false);
@@ -343,7 +347,7 @@ function RegisterModal({
     setSearched(false);
     try {
       const res = await fetch(
-        `/api/opcard?name=${encodeURIComponent(query.trim())}&game=${encodeURIComponent(game.id)}`
+        `/api/opcard?name=${encodeURIComponent(query.trim())}&game=${encodeURIComponent(gameId)}`
       );
       const d = (await res.json()) as { cards?: OpSearchCard[] };
       setResults(res.ok && d.cards ? d.cards : []);
@@ -354,13 +358,12 @@ function RegisterModal({
     setSearched(true);
   }
 
-  /** 게임 전환 — 이전 게임의 검색 결과/선택을 비우고 프랜차이즈 기본값 갱신 */
-  function switchGame(g: (typeof APITCG_GAMES)[number]) {
-    setGame(g);
+  /** 게임 전환 — 이전 게임의 검색 결과/선택을 비운다 */
+  function switchGame(id: string) {
+    setGameId(id);
     setResults([]);
     setSearched(false);
     setPickedId(null);
-    setFranchise(g.franchise);
   }
 
   /** 검색 결과 카드 선택 → 이름·이미지·프랜차이즈 자동 채움 (등급만 수동) */
@@ -368,7 +371,7 @@ function RegisterModal({
     setPickedId(c.id);
     setName(c.name);
     setImageUrl(c.imageUrl);
-    setFranchise(game.franchise);
+    setFranchise(c.franchise ?? APITCG_GAMES.find((g) => g.id === gameId)?.franchise ?? "");
   }
 
   const inputCls =
@@ -406,21 +409,18 @@ function RegisterModal({
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {/* 게임 선택 — apitcg 지원 TCG (새 게임은 lib/api/apitcgGames.ts에 한 줄 추가) */}
-            <div className="flex gap-1.5 flex-wrap">
-              {APITCG_GAMES.map((g) => (
-                <Chip key={g.id} active={game.id === g.id} onClick={() => switchGame(g)}>
-                  {g.label}
-                </Chip>
-              ))}
-            </div>
-            {/* 카드 검색 — apitcg에서 이미지째 가져옴 */}
+            {/* 카드 검색 — 기본 전체 게임, 드롭다운으로 한 게임만 한정 가능 */}
             <div className="flex gap-2">
+              <GameSelect value={gameId} onChange={switchGame} />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                placeholder={game.codeSearch ? "Card name or code (e.g. OP01-016)" : "Card name"}
+                placeholder={
+                  gameId === "all" || APITCG_GAMES.find((g) => g.id === gameId)?.codeSearch
+                    ? "Card name or code (e.g. OP01-016)"
+                    : "Card name"
+                }
                 className={inputCls}
               />
               <button
@@ -491,6 +491,66 @@ function RegisterModal({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** 게임 한정 드롭다운 — 기본 All games. 누르면 목록이 펼쳐지고, 고르면 접힘.
+ *  게임 목록은 lib/api/apitcgGames.ts에서 (새 게임 추가 시 자동 반영) */
+function GameSelect({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // 바깥 클릭 시 접기
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener("pointerdown", onDown);
+    return () => window.removeEventListener("pointerdown", onDown);
+  }, [open]);
+
+  const label = value === "all" ? "All games" : APITCG_GAMES.find((g) => g.id === value)?.label;
+
+  return (
+    <div ref={rootRef} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="h-full inline-flex items-center gap-1.5 text-[12px] font-bold px-3 rounded-xl bg-cream/[0.05] border border-glassline text-creamdim hover:text-cream transition-colors"
+      >
+        {label}
+        <CaretDown
+          size={12}
+          weight="bold"
+          className={`transition-transform ${open ? "rotate-180" : ""}`}
+          aria-hidden
+        />
+      </button>
+      {open && (
+        <ul
+          role="listbox"
+          aria-label="Search game"
+          className="absolute left-0 top-[calc(100%+6px)] z-10 w-max min-w-full max-h-[220px] overflow-y-auto bg-inkdark border border-glassline rounded-xl p-1 shadow-[0_10px_30px_rgba(0,0,0,0.5)]"
+        >
+          {[{ id: "all", label: "All games" }, ...APITCG_GAMES].map((g) => (
+            <li key={g.id} role="option" aria-selected={g.id === value}>
+              <button
+                type="button"
+                onClick={() => { onChange(g.id); setOpen(false); }}
+                className={`w-full text-left text-[12px] font-bold px-3 py-2 rounded-lg transition-colors ${
+                  g.id === value ? "text-amber bg-ambersoft" : "text-creamdim hover:text-cream hover:bg-cream/[0.05]"
+                }`}
+              >
+                {g.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
