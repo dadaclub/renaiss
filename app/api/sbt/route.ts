@@ -23,9 +23,11 @@ export const revalidate = 300;
 const SBT_CONTRACT = process.env.RENAISS_SBT_CONTRACT ?? "0x7D1B7dB704d722295fbAa284008f526634673DbF";
 const WALLET = process.env.RENAISS_SHOWCASE_WALLET ?? "0x8954ac7dfe4e6e86e399f01496a7828e73cc57e5";
 
-export async function GET() {
+export async function GET(req: Request) {
+  // ?user= 로 특정 방 주인의 SBT 조회 (방문 기능). 없으면 env 기본값.
+  const user =
+    new URL(req.url).searchParams.get("user")?.trim() || process.env.RENAISS_SHOWCASE_USER;
   // 1) Renaiss 프로필 — 유저가 전시용으로 직접 고른 뱃지(favoritedSBTs)가 우선
-  const user = process.env.RENAISS_SHOWCASE_USER;
   if (user) {
     try {
       const profile = await getUserProfile(user);

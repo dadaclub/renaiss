@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useEffect } from "react";
 import { CaretLeft, CaretRight, Warning, X } from "@phosphor-icons/react";
 import { ScreenShell } from "./ScreenShell";
+import { useRoom } from "../RoomContext";
 
 /**
  * 앨범 — 띠부실(포켓몬 스티커) "COLLECT BOOK" 컨셉의 SBT 컬렉션북.
@@ -48,6 +49,7 @@ const SLOTS = 16; // 4×4
 type Picked = { sbt: Sbt; accent: string };
 
 export function AlbumScreen({ onClose }: { onClose: () => void }) {
+  const { room } = useRoom();
   const [sbts, setSbts] = useState<Sbt[] | null>(null);
   const [fallback, setFallback] = useState(false);
   const [picked, setPicked] = useState<Picked | null>(null);
@@ -56,7 +58,9 @@ export function AlbumScreen({ onClose }: { onClose: () => void }) {
     let alive = true;
     (async () => {
       try {
-        const r = await fetch("/api/sbt");
+        // 현재 방 주인의 SBT — user 없으면 서버가 env 기본값 폴백
+        const q = room.renaissUser ? `?user=${encodeURIComponent(room.renaissUser)}` : "";
+        const r = await fetch(`/api/sbt${q}`);
         const d = (await r.json()) as { sbts?: Sbt[] };
         if (r.ok && d.sbts && d.sbts.length > 0) {
           if (alive) {
@@ -76,7 +80,7 @@ export function AlbumScreen({ onClose }: { onClose: () => void }) {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [room.renaissUser]);
 
   return (
     <ScreenShell title="Collect Book" onClose={onClose}>
