@@ -1,6 +1,5 @@
 "use client";
 import { Spot, ROOM_IMG } from "@/lib/spots";
-import { useClickSound } from "@/lib/useClickSound";
 import { useRingSound } from "@/lib/useRingSound";
 
 interface Props {
@@ -30,14 +29,11 @@ export function Hotspot({
   onSelect,
 }: Props) {
   const { left, top, width, height } = spot.area;
-  const playClickSound = useClickSound("/sounds/ui-click.mp3");
   useRingSound("/sounds/phone-ring.mp3", ring);
   return (
     <button
-      onClick={() => {
-        playClickSound();
-        onSelect(spot);
-      }}
+      // 클릭음은 전역(ClickSound)에서 pointerdown 위임으로 처리 — 여기선 진입만.
+      onClick={() => onSelect(spot)}
       onMouseEnter={() => onHover?.(spot, true)}
       onMouseLeave={() => onHover?.(spot, false)}
       disabled={disabled}
