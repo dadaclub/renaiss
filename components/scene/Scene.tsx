@@ -2,11 +2,13 @@
 import { useEffect, useRef, useState } from "react";
 import { SPOTS, Spot, SpotId, ROOM_IMG } from "@/lib/spots";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
+import { BackgroundMusic } from "./BackgroundMusic";
 import { Hotspot } from "./Hotspot";
 import { LoginIntro } from "./LoginIntro";
 import { ObjectScreen } from "./ObjectScreen";
 import { OverlayEditor } from "./OverlayEditor";
 import { OverlayQuad } from "./OverlayQuad";
+import { SnackHoverSound } from "./SnackHoverSound";
 
 /**
  * 방 씬.
@@ -134,6 +136,9 @@ export function Scene() {
           );
         })}
 
+        {/* 과자봉지 호버 사운드 — 클릭 기능은 아직 없고(candy-bag-crumple 브랜치 미병합), 마우스 오버 시 부스럭 소리만 */}
+        <SnackHoverSound active={loggedIn && !active} />
+
         {/* 개발용 오버레이 편집기 (?edit) — 아무 스팟이나 네 꼭짓점을 드래그해 치수 확정.
             key로 스팟 전환 시 편집기를 리마운트해 상태를 새 스팟 값으로 초기화. */}
         {edit && (
@@ -180,6 +185,9 @@ export function Scene() {
 
       {/* 오브젝트 새 화면 (로그인 후) */}
       {loggedIn && active && <ObjectScreen spot={active} onClose={close} onLogout={logout} />}
+
+      {/* 배경음악 — 로그인 후 계속 재생, 우하단 아이콘으로 음소거 토글 */}
+      <BackgroundMusic active={loggedIn} />
     </main>
   );
 }

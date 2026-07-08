@@ -1,5 +1,7 @@
 "use client";
 import { Spot, ROOM_IMG } from "@/lib/spots";
+import { useClickSound } from "@/lib/useClickSound";
+import { useRingSound } from "@/lib/useRingSound";
 
 interface Props {
   spot: Spot;
@@ -28,9 +30,14 @@ export function Hotspot({
   onSelect,
 }: Props) {
   const { left, top, width, height } = spot.area;
+  const playClickSound = useClickSound("/sounds/ui-click.mp3");
+  useRingSound("/sounds/phone-ring.mp3", ring);
   return (
     <button
-      onClick={() => onSelect(spot)}
+      onClick={() => {
+        playClickSound();
+        onSelect(spot);
+      }}
       onMouseEnter={() => onHover?.(spot, true)}
       onMouseLeave={() => onHover?.(spot, false)}
       disabled={disabled}
