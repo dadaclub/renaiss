@@ -5,6 +5,7 @@ import {
   ArrowsClockwise,
   Cards,
   CaretDown,
+  CaretUp,
   LinkSimple,
   Package,
   PencilSimple,
@@ -50,6 +51,8 @@ interface ShelfCard {
   priceUsd?: number;
   delta30d?: number;
   acquiredAt: string;
+  /** 등록 시각(Supabase created_at) — Newest/Oldest 정렬 기준. acquiredAt은 날짜만이라 동일값이 많아 순서가 안 갈림 */
+  createdAt?: string;
   origin: CardOrigin;
   certNumber?: string; // 실물 카드(PSA)만
   tokenId?: string; // 온체인 카드만 (Renaiss tokenId)
@@ -106,6 +109,7 @@ interface SavedRow {
   franchise: string | null;
   image_url: string | null;
   acquired_at: string;
+  created_at?: string; // 등록 시각(정렬 기준)
   origin?: CardOrigin | null; // 컬럼 추가 전 행은 null → physical 취급
   token_id?: string | null;
 }
@@ -120,6 +124,7 @@ function rowToCard(r: SavedRow, i: number): ShelfCard {
     tint: TINTS[i % TINTS.length],
     imageUrl: r.image_url ?? undefined,
     acquiredAt: r.acquired_at,
+    createdAt: r.created_at,
     origin: r.origin === "onchain" ? "onchain" : "physical",
     tokenId: r.token_id ?? undefined,
     fromDb: true,
@@ -180,14 +185,18 @@ const SORT_LABELS: Record<SortKey, string> = {
   priceLow: "Price low",
 };
 
+// Newest/Oldest 정렬 키 — created_at(시각 포함) 우선, 없으면 acquiredAt(날짜만).
+// acquiredAt만 쓰면 같은 날 등록분이 전부 동일값이라 순서가 안 갈린다.
+const orderKey = (c: ShelfCard) => c.createdAt ?? c.acquiredAt;
+
 /** 정렬. 가격 미상(실물 미평가) 카드는 금액 정렬에서 맨 뒤로 */
 function sortCards(cards: ShelfCard[], sort: SortKey): ShelfCard[] {
   const arr = [...cards];
   switch (sort) {
     case "newest":
-      return arr.sort((a, b) => b.acquiredAt.localeCompare(a.acquiredAt));
+      return arr.sort((a, b) => orderKey(b).localeCompare(orderKey(a)));
     case "oldest":
-      return arr.sort((a, b) => a.acquiredAt.localeCompare(b.acquiredAt));
+      return arr.sort((a, b) => orderKey(a).localeCompare(orderKey(b)));
     case "priceHigh":
       return arr.sort((a, b) => (b.priceUsd ?? -1) - (a.priceUsd ?? -1));
     case "priceLow":
@@ -360,13 +369,36 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
         {/* 상단 — 떠 있는 컨트롤 (타이틀 없음). 좁은 화면에선 고정 Back 버튼 아래로 내림 */}
         <div className="shrink-0 flex flex-col items-center gap-3 pt-[72px] lg:pt-6 pb-2 px-6">
           <div className="flex items-center gap-2 flex-wrap justify-center bg-glass/70 backdrop-blur-md border border-glassline rounded-full px-3 py-2">
-            {/* 정렬 — 네이티브 select 대신 브랜드 Chip 토글 */}
+            {/* 정렬 — 2개 토글 칩. 날짜(Newest↑⇄Oldest↓), 가격(high↑⇄low↓). 탭하면 방향 반전 */}
             <div aria-label="Sort cards" className="flex items-center gap-1.5">
-              {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
-                <Chip key={k} active={sort === k} onClick={() => setSort(k)}>
-                  {SORT_LABELS[k]}
-                </Chip>
-              ))}
+              {/* 날짜 */}
+              <Chip
+                active={sort === "newest" || sort === "oldest"}
+                onClick={() => setSort(sort === "newest" ? "oldest" : "newest")}
+              >
+                <span className="inline-flex items-center gap-1">
+                  {sort === "oldest" ? SORT_LABELS.oldest : SORT_LABELS.newest}
+                  {sort === "oldest" ? (
+                    <CaretDown size={11} weight="bold" aria-hidden />
+                  ) : (
+                    <CaretUp size={11} weight="bold" aria-hidden />
+                  )}
+                </span>
+              </Chip>
+              {/* 가격 */}
+              <Chip
+                active={sort === "priceHigh" || sort === "priceLow"}
+                onClick={() => setSort(sort === "priceHigh" ? "priceLow" : "priceHigh")}
+              >
+                <span className="inline-flex items-center gap-1">
+                  {sort === "priceLow" ? SORT_LABELS.priceLow : SORT_LABELS.priceHigh}
+                  {sort === "priceLow" ? (
+                    <CaretDown size={11} weight="bold" aria-hidden />
+                  ) : (
+                    <CaretUp size={11} weight="bold" aria-hidden />
+                  )}
+                </span>
+              </Chip>
             </div>
             <span className="w-px h-4 bg-glassline" aria-hidden />
             {/* 동기화는 Add card 모달의 From Renaiss 탭으로 통일 — 여기는 상태 표시만 */}
@@ -390,7 +422,7 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* 진열장 본체 — 화면 전체가 선반 벽 (상하 + 좌우 스크롤) */}
-        <div className="flex-1 min-h-0 overflow-auto px-8 pt-8 pb-20">
+        <div className="flex-1 min-h-0 overflow-auto px-8 pt-5 pb-10">
           {syncing && cards.length === 0 ? (
             <Shelves
               cards={Array.from({ length: SHELF_SIZE * 2 }, () => null)}
@@ -925,9 +957,9 @@ function CardDetail({
  * 최종 진열장 아트가 나오면 아래 컴포넌트만 교체.
  * 카드 클릭 콜백/데이터 계약은 그대로 유지할 것. */
 
-const SHELF_SIZE = 6; // 선반 한 단에 놓이는 카드 수 (넘치면 가로 스크롤)
-// 카드 폭 — 화면 폭에 따라 96~140px 자동 조절 (좁은 창에서도 한 단이 들어가게)
-const CARD_W = "w-[clamp(96px,11vw,140px)]";
+const SHELF_SIZE = 5; // 선반 한 단에 놓이는 카드 수 (5장 = 방 이미지 안에서 가로 스크롤 안 남)
+// 카드 폭 — 화면 폭에 따라 88~132px 자동 조절 (방 이미지 안에 5장이 스크롤 없이 들어가게)
+const CARD_W = "w-[clamp(88px,10vw,132px)]";
 
 /** 월 레지 선반 여러 단 — 얇은 선반 턱 위에 카드가 정면으로 빽빽하게 서 있음.
  *  레퍼런스: 카드샵 월 디스플레이 + 투명 쇼케이스.
@@ -953,19 +985,19 @@ function Shelves({
     <div className="w-max min-w-full flex flex-col items-center">
       {/* 선반 개수 = 카드 수에 맞춤. 선반 길이는 가장 긴 단에 맞춰 전부 동일 —
           카드는 무조건 왼쪽부터 채움 (덜 찬 단도 좌측 정렬, 오른쪽이 빈 자리) */}
-      <div className="w-max flex flex-col gap-7">
+      <div className="w-max flex flex-col gap-4">
         {rows.map((row, r) => (
           <div key={r}>
-            {/* 카드들 — 선반 턱 위에 정면으로, 왼쪽부터 서 있음 */}
-            <div className="flex items-end justify-start gap-3 px-5">
+            {/* 카드들 — 선반 턱 위에 정면으로, 왼쪽부터 서 있음. mb로 선반과 살짝 띄움 */}
+            <div className="flex items-end justify-start gap-3 px-5 mb-1.5">
               {row.map((card, i) =>
                 card === "add" ? (
-                  // 카드 등록 슬롯 — 카드 한 장 크기의 점선 칸, 마지막 카드 뒤에 정렬
+                  // 카드 등록 슬롯 — self-stretch로 옆 카드(라벨+아트) 높이에 정확히 맞춤
                   <button
                     key="add"
                     onClick={onAdd}
                     aria-label="Add a card"
-                    className={`${CARD_W} shrink-0 aspect-[5/7] rounded-[10px] border-2 border-dashed border-glassline text-creamdim flex flex-col items-center justify-center gap-1.5 transition-colors duration-200 hover:border-amber hover:text-amber focus-visible:border-amber focus-visible:text-amber outline-none`}
+                    className={`${CARD_W} shrink-0 self-stretch min-h-[128px] rounded-[10px] border-2 border-dashed border-glassline text-creamdim flex flex-col items-center justify-center gap-1.5 transition-colors duration-200 hover:border-amber hover:text-amber focus-visible:border-amber focus-visible:text-amber outline-none`}
                   >
                     <Plus size={22} weight="bold" aria-hidden />
                     <span className="text-[11px] font-bold">Add card</span>
@@ -994,10 +1026,11 @@ function Shelves({
               )}
             </div>
             {/* 선반 턱 (월 레지) — 윗면 하이라이트 + 두께감 + 네온 언더글로우로 가구처럼 */}
-            <div className="h-[3px] rounded-t-[2px] bg-gradient-to-b from-cream/45 to-cream/15" />
-            <div className="h-[11px] rounded-b-[3px] bg-gradient-to-b from-inkdark via-inkdark/80 to-bg border-x border-b border-glassline/60 shadow-[0_14px_32px_-4px_theme(colors.amber/35%)]" />
-            {/* 선반 아래 은은한 벽 그림자 + 네온 반사광 */}
-            <div className="h-5 bg-[linear-gradient(180deg,theme(colors.amber/8%),theme(colors.bg/60%)_45%,transparent)]" />
+            <div className="h-[3px] rounded-t-[2px] bg-glassline" />
+            {/* 선반 가운데 — 상단 "13 cards" 바와 동일한 glass 색(어두운 보라 + 블러) */}
+            <div className="h-[9px] rounded-b-[3px] bg-glass/70 border-x border-b border-glassline backdrop-blur-md shadow-[0_14px_32px_-6px_rgba(0,0,0,0.5)]" />
+            {/* 선반 아래 은은한 벽 그림자 */}
+            <div className="h-2 bg-[linear-gradient(180deg,theme(colors.cream/8%),theme(colors.bg/55%)_45%,transparent)]" />
           </div>
         ))}
       </div>
