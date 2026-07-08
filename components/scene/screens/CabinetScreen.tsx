@@ -243,13 +243,6 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
               />
               Sync
             </button>
-            <button
-              onClick={() => setModal("register")}
-              className="inline-flex items-center gap-1.5 text-[12px] font-bold px-3.5 py-1.5 rounded-full bg-amber text-inkdark hover:brightness-110 transition"
-            >
-              <Plus size={13} weight="bold" aria-hidden />
-              Add card
-            </button>
           </div>
           {syncError && (
             <div className="flex items-center gap-2 text-[12px] font-semibold text-creamdim bg-glass/70 backdrop-blur-md border border-glassline rounded-full px-3.5 py-1.5">
@@ -286,7 +279,7 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
               </button>
             </div>
           ) : (
-            <Shelves cards={visible} onSelect={setSelected} />
+            <Shelves cards={visible} onSelect={setSelected} onAdd={() => setModal("register")} />
           )}
         </div>
       </div>
@@ -611,14 +604,19 @@ const CARD_W = "w-[clamp(96px,11vw,140px)]";
 function Shelves({
   cards,
   onSelect,
+  onAdd,
   skeleton = false,
 }: {
   cards: (ShelfCard | null)[];
   onSelect: (c: ShelfCard) => void;
+  /** 있으면 마지막 카드 뒤 칸에 "Add card" 슬롯을 붙인다 (선반 정렬과 일치) */
+  onAdd?: () => void;
   skeleton?: boolean;
 }) {
-  const rows: (ShelfCard | null)[][] = [];
-  for (let i = 0; i < cards.length; i += SHELF_SIZE) rows.push(cards.slice(i, i + SHELF_SIZE));
+  // "add" = 마지막 카드 바로 뒤에 서는 등록 슬롯. 단이 꽉 찼으면 자연스럽게 다음 단으로 넘어감.
+  const items: (ShelfCard | null | "add")[] = onAdd && !skeleton ? [...cards, "add"] : cards;
+  const rows: (ShelfCard | null | "add")[][] = [];
+  for (let i = 0; i < items.length; i += SHELF_SIZE) rows.push(items.slice(i, i + SHELF_SIZE));
 
   return (
     <div className="w-max min-w-full flex flex-col items-center">
@@ -630,7 +628,18 @@ function Shelves({
             {/* 카드들 — 선반 턱 위에 정면으로, 왼쪽부터 서 있음 */}
             <div className="flex items-end justify-start gap-3 px-5">
               {row.map((card, i) =>
-                card && !skeleton ? (
+                card === "add" ? (
+                  // 카드 등록 슬롯 — 카드 한 장 크기의 점선 칸, 마지막 카드 뒤에 정렬
+                  <button
+                    key="add"
+                    onClick={onAdd}
+                    aria-label="Add a card"
+                    className={`${CARD_W} shrink-0 aspect-[5/7] rounded-[10px] border-2 border-dashed border-glassline text-creamdim flex flex-col items-center justify-center gap-1.5 transition-colors duration-200 hover:border-amber hover:text-amber focus-visible:border-amber focus-visible:text-amber outline-none`}
+                  >
+                    <Plus size={22} weight="bold" aria-hidden />
+                    <span className="text-[11px] font-bold">Add card</span>
+                  </button>
+                ) : card && !skeleton ? (
                   <button
                     key={card.id}
                     onClick={() => onSelect(card)}
