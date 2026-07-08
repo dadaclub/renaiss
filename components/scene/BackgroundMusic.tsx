@@ -9,6 +9,14 @@ const FADE_IN_MS = 2500;
 export function BackgroundMusic({ active }: { active: boolean }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [muted, setMuted] = useState(false);
+  // 컴퓨터 미니게임 화면이 열려 있는 동안(자체 게임 BGM 재생 중)은 방 배경음악을 잠시 멈춘다
+  const [suppressed, setSuppressed] = useState(false);
+
+  useEffect(() => {
+    const onSuppress = (e: Event) => setSuppressed((e as CustomEvent<boolean>).detail);
+    window.addEventListener("suppress-room-bgm", onSuppress);
+    return () => window.removeEventListener("suppress-room-bgm", onSuppress);
+  }, []);
 
   useEffect(() => {
     if (!audioRef.current) {
@@ -22,7 +30,7 @@ export function BackgroundMusic({ active }: { active: boolean }) {
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    if (active) {
+    if (active && !suppressed) {
       audio.volume = 0;
       // 브라우저 자동재생 정책으로 막히면, 다음 클릭(어디든) 때 한 번 더 시도
       audio.play().catch(() => {
@@ -40,7 +48,7 @@ export function BackgroundMusic({ active }: { active: boolean }) {
       audio.pause();
       audio.currentTime = 0;
     }
-  }, [active]);
+  }, [active, suppressed]);
 
   if (!active) return null;
 
