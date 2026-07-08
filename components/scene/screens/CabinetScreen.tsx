@@ -7,6 +7,7 @@ import {
   CaretDown,
   LinkSimple,
   Package,
+  PencilSimple,
   Plus,
   TrendDown,
   TrendUp,
@@ -17,6 +18,7 @@ import { APITCG_GAMES } from "@/lib/api/apitcgGames";
 import { Chip } from "@/components/ui/Chip";
 import { fmtUsd } from "@/lib/mockCards";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
+import { supabase } from "@/lib/supabase";
 
 /**
  * 카드 진열장 화면.
@@ -49,6 +51,9 @@ interface ShelfCard {
   acquiredAt: string;
   origin: CardOrigin;
   certNumber?: string; // 실물 카드(PSA)만
+  tokenId?: string; // 온체인 카드만 (Renaiss tokenId)
+  /** Supabase에 저장된 카드 (직접 등록) — 동기화 때 유지되고 수정/삭제 가능 */
+  fromDb?: boolean;
 }
 
 /** Renaiss 쇼케이스 카드 조회.
@@ -92,6 +97,55 @@ async function fetchOnchainCards(): Promise<{ cards: ShelfCard[]; fromFallback: 
   return { fromFallback: true, cards: [] };
 }
 
+/** Supabase showcase_cards 테이블의 행 — 직접 등록한 카드(실물/온체인)의 원격 저장분 */
+interface SavedRow {
+  id: string;
+  name: string;
+  grade: string;
+  franchise: string | null;
+  image_url: string | null;
+  acquired_at: string;
+  origin?: CardOrigin | null; // 컬럼 추가 전 행은 null → physical 취급
+  token_id?: string | null;
+}
+
+function rowToCard(r: SavedRow, i: number): ShelfCard {
+  return {
+    id: r.id,
+    name: r.name,
+    grade: r.grade,
+    franchise: r.franchise ?? "",
+    emoji: "🃏",
+    tint: TINTS[i % TINTS.length],
+    imageUrl: r.image_url ?? undefined,
+    acquiredAt: r.acquired_at,
+    origin: r.origin === "onchain" ? "onchain" : "physical",
+    tokenId: r.token_id ?? undefined,
+    fromDb: true,
+  };
+}
+
+/** 직접 등록한 카드 로드 (Supabase). 테이블 미생성/장애 시 빈 배열 — 화면은 그대로 동작. */
+async function fetchSavedCards(): Promise<ShelfCard[]> {
+  const { data, error } = await supabase
+    .from("showcase_cards")
+    .select("*")
+    .order("created_at", { ascending: true });
+  if (error || !data) return [];
+  return (data as SavedRow[]).map(rowToCard);
+}
+
+/** 온체인 카드 수동 등록용 — /api/showcase?ids= 응답 카드 */
+interface OnchainCardDto {
+  tokenId: string;
+  name: string;
+  grade: string;
+  franchise: string;
+  priceUsd?: number;
+  acquiredAt?: string;
+  imageUrl?: string;
+}
+
 /** 원피스 카드 검색 결과 (apitcg 프록시 /api/opcard 응답 카드). 실물 카드 등록 시 이미지 자동 채움용. */
 interface OpSearchCard {
   id: string;
@@ -111,7 +165,7 @@ const today = () => new Date().toISOString().slice(0, 10).replaceAll("-", ".");
 /* ================= 화면 로직 ================= */
 
 type SortKey = "newest" | "oldest" | "priceHigh" | "priceLow";
-type ModalState = null | "register";
+type ModalState = null | "register" | { edit: ShelfCard };
 
 const SORT_LABELS: Record<SortKey, string> = {
   newest: "Newest",
@@ -154,40 +208,116 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
   const [modal, setModal] = useState<ModalState>(null);
   const [selected, setSelected] = useState<ShelfCard | null>(null);
 
-  // 폰 로그인(목)을 이미 통과한 상태라는 전제 — 마운트 시 지갑 카드 자동 로드
+  // 폰 로그인(목)을 이미 통과한 상태라는 전제 — 마운트 시 지갑 카드 + 등록 카드 자동 로드
   useEffect(() => {
     syncWallet();
+    loadSaved();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function syncWallet() {
     setSyncing(true);
     const { cards: onchain, fromFallback } = await fetchOnchainCards();
-    setCards((prev) => [...onchain, ...prev.filter((c) => c.origin === "physical")]);
+    // 직접 등록한 카드(fromDb — 실물/온체인 모두)는 동기화로 덮어쓰지 않는다
+    setCards((prev) => [...onchain, ...prev.filter((c) => c.fromDb)]);
     setSyncing(false);
     setSynced(true);
     setSyncError(fromFallback);
   }
 
-  function addPhysical(card: PhysicalInput) {
-    // TODO: 새로고침하면 사라짐 — API 라우트 + 원격 저장소(Upstash/Neon) 붙일 것 (localStorage 금지)
+  /** Supabase에 저장해둔 등록 카드 로드 — 새로고침해도 유지되는 부분 */
+  async function loadSaved() {
+    const saved = await fetchSavedCards();
+    if (saved.length === 0) return;
+    setCards((prev) => [...prev.filter((c) => !c.fromDb), ...saved]);
+  }
+
+  /** Supabase에 카드 저장 후 선반에 추가 — 실물/온체인 공용 */
+  async function saveCard(
+    input: PhysicalInput & { origin: CardOrigin; tokenId?: string; priceUsd?: number },
+    acquiredAt: string
+  ) {
+    // 원격 저장 (Supabase) — 실패해도 화면에는 추가하되 그 카드는 새로고침 시 사라짐
+    let id = `p${Date.now()}`;
+    const base = {
+      name: input.name,
+      grade: input.grade,
+      franchise: input.franchise,
+      image_url: input.imageUrl ?? null,
+      acquired_at: acquiredAt,
+    };
+    let { data } = await supabase
+      .from("showcase_cards")
+      .insert({ ...base, origin: input.origin, token_id: input.tokenId ?? null })
+      .select("id")
+      .single();
+    if (!data) {
+      // origin/token_id 컬럼이 아직 없는 구스키마 — 기본 필드만으로 재시도
+      ({ data } = await supabase.from("showcase_cards").insert(base).select("id").single());
+    }
+    if (data) id = (data as { id: string }).id;
     setCards((prev) => [
       ...prev,
       {
-        ...card,
-        id: `p${Date.now()}`,
-        origin: "physical",
-        acquiredAt: today(),
+        ...input,
+        id,
+        acquiredAt,
         emoji: "🃏",
         tint: TINTS[prev.length % TINTS.length],
+        fromDb: true,
       },
     ]);
     setModal(null);
   }
 
+  async function addPhysical(card: PhysicalInput) {
+    await saveCard({ ...card, origin: "physical" }, today());
+  }
+
+  /** 온체인 카드 수동 등록 — 토큰ID로 Renaiss에서 조회한 카드를 저장 */
+  async function addOnchain(dto: OnchainCardDto) {
+    // 이미 선반에 있는 토큰이면 중복 등록 방지
+    if (cards.some((c) => c.tokenId === dto.tokenId || c.id === dto.tokenId)) {
+      setModal(null);
+      return;
+    }
+    await saveCard(
+      {
+        name: dto.name,
+        grade: dto.grade || "Raw",
+        franchise: dto.franchise,
+        imageUrl: dto.imageUrl,
+        origin: "onchain",
+        tokenId: dto.tokenId,
+        priceUsd: dto.priceUsd,
+      },
+      dto.acquiredAt ?? today()
+    );
+  }
+
+  /** 실물 카드 정보 수정 — 검색으로 다시 고르거나 필드를 직접 고침 */
+  function updatePhysical(id: string, input: PhysicalInput) {
+    setCards((prev) => prev.map((c) => (c.id === id ? { ...c, ...input } : c)));
+    setModal(null);
+    void supabase
+      .from("showcase_cards")
+      .update({
+        name: input.name,
+        grade: input.grade,
+        franchise: input.franchise,
+        image_url: input.imageUrl ?? null,
+      })
+      .eq("id", id)
+      .then();
+  }
+
   function removeCard(id: string) {
+    const target = cards.find((c) => c.id === id);
     setCards((prev) => prev.filter((c) => c.id !== id));
     setSelected(null);
+    if (target?.fromDb) {
+      void supabase.from("showcase_cards").delete().eq("id", id).then();
+    }
   }
 
   const visible = useMemo(() => sortCards(cards, sort), [cards, sort]);
@@ -284,10 +414,32 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
       />
 
       {modal === "register" && (
-        <RegisterModal onSubmit={addPhysical} onSync={syncWallet} onClose={() => setModal(null)} />
+        <RegisterModal
+          onSubmit={addPhysical}
+          onAddOnchain={addOnchain}
+          onSync={syncWallet}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal !== null && modal !== "register" && (
+        <RegisterModal
+          initial={modal.edit}
+          onSubmit={(c) => updatePhysical(modal.edit.id, c)}
+          onAddOnchain={addOnchain}
+          onSync={syncWallet}
+          onClose={() => setModal(null)}
+        />
       )}
       {selected && (
-        <CardDetail card={selected} onRemove={removeCard} onClose={() => setSelected(null)} />
+        <CardDetail
+          card={selected}
+          onRemove={removeCard}
+          onEdit={(c) => {
+            setSelected(null);
+            setModal({ edit: c });
+          }}
+          onClose={() => setSelected(null)}
+        />
       )}
     </div>
   );
@@ -314,19 +466,25 @@ function RoomBackdrop() {
 /* ================= 등록 모달 ================= */
 
 function RegisterModal({
+  initial,
   onSubmit,
+  onAddOnchain,
   onSync,
   onClose,
 }: {
+  /** 있으면 수정 모드 — 기존 실물 카드 값을 채워서 열고, 저장 시 그 카드를 덮어씀 */
+  initial?: ShelfCard;
   onSubmit: (c: PhysicalInput) => void;
+  onAddOnchain: (c: OnchainCardDto) => void;
   onSync: () => void;
   onClose: () => void;
 }) {
-  const [mode, setMode] = useState<CardOrigin>("onchain");
-  const [name, setName] = useState("");
-  const [grade, setGrade] = useState("");
-  const [franchise, setFranchise] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const editing = initial !== undefined;
+  const [mode, setMode] = useState<CardOrigin>(editing ? "physical" : "onchain");
+  const [name, setName] = useState(initial?.name ?? "");
+  const [grade, setGrade] = useState(initial?.grade ?? "");
+  const [franchise, setFranchise] = useState(initial?.franchise ?? "");
+  const [imageUrl, setImageUrl] = useState(initial?.imageUrl ?? "");
   // TCG 카드 검색 (apitcg 프록시 /api/opcard) — 기본은 전체 게임, 드롭다운으로 한정 가능
   const [gameId, setGameId] = useState<string>("all");
   const [query, setQuery] = useState("");
@@ -334,6 +492,12 @@ function RegisterModal({
   const [searching, setSearching] = useState(false);
   const [searched, setSearched] = useState(false);
   const [pickedId, setPickedId] = useState<string | null>(null);
+  // 검색 DB(영어판)에 없는 카드(일본판 프로모 등)용 — 평소엔 숨기고 요청 시에만 노출
+  const [showImageInput, setShowImageInput] = useState(false);
+  // 온체인 카드 토큰ID 수동 등록
+  const [tokenId, setTokenId] = useState("");
+  const [tokenLoading, setTokenLoading] = useState(false);
+  const [tokenError, setTokenError] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEscapeToClose(onClose);
@@ -356,6 +520,26 @@ function RegisterModal({
     }
     setSearching(false);
     setSearched(true);
+  }
+
+  /** 토큰ID로 온체인 카드 조회 → 등록 (Renaiss 공개 API /v0/cards/{tokenId}) */
+  async function handleAddByTokenId() {
+    const id = tokenId.trim();
+    if (!id) return;
+    setTokenLoading(true);
+    setTokenError(false);
+    try {
+      const res = await fetch(`/api/showcase?ids=${encodeURIComponent(id)}`);
+      const d = (await res.json()) as { cards?: OnchainCardDto[] };
+      if (res.ok && d.cards && d.cards.length > 0) {
+        onAddOnchain(d.cards[0]);
+      } else {
+        setTokenError(true);
+      }
+    } catch {
+      setTokenError(true);
+    }
+    setTokenLoading(false);
   }
 
   /** 게임 전환 — 이전 게임의 검색 결과/선택을 비운다 */
@@ -383,16 +567,18 @@ function RegisterModal({
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Add a card"
+        aria-label={editing ? "Edit card" : "Add a card"}
         tabIndex={-1}
         className="w-[min(92vw,420px)] bg-glass border border-glassline rounded-panel p-6 flex flex-col gap-4 outline-none focus-visible:ring-2 focus-visible:ring-amber/60"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-cream font-bold text-lg">Add a card</h3>
-        <div className="flex gap-2">
-          <Chip active={mode === "onchain"} onClick={() => setMode("onchain")}>From Renaiss</Chip>
-          <Chip active={mode === "physical"} onClick={() => setMode("physical")}>Physical card</Chip>
-        </div>
+        <h3 className="text-cream font-bold text-lg">{editing ? "Edit card" : "Add a card"}</h3>
+        {!editing && (
+          <div className="flex gap-2">
+            <Chip active={mode === "onchain"} onClick={() => setMode("onchain")}>From Renaiss</Chip>
+            <Chip active={mode === "physical"} onClick={() => setMode("physical")}>Physical card</Chip>
+          </div>
+        )}
 
         {mode === "onchain" ? (
           <div className="flex flex-col gap-3">
@@ -406,6 +592,39 @@ function RegisterModal({
               <ArrowsClockwise size={14} weight="bold" aria-hidden />
               Refresh from Renaiss
             </button>
+            {/* 쇼케이스에 없는 온체인 카드 — Renaiss tokenId로 직접 등록 */}
+            <div className="flex items-center gap-2" aria-hidden>
+              <span className="flex-1 h-px bg-glassline" />
+              <span className="text-[10px] font-bold text-creamdim/70 uppercase tracking-wider">
+                or add one card
+              </span>
+              <span className="flex-1 h-px bg-glassline" />
+            </div>
+            <p className="text-[12px] text-creamdim leading-relaxed -mb-1">
+              Paste a token ID from any Renaiss card page to pin that card to your shelf.
+            </p>
+            <div className="flex gap-2">
+              <input
+                value={tokenId}
+                onChange={(e) => { setTokenId(e.target.value); setTokenError(false); }}
+                onKeyDown={(e) => e.key === "Enter" && handleAddByTokenId()}
+                placeholder="Token ID"
+                className={inputCls}
+              />
+              <button
+                onClick={handleAddByTokenId}
+                disabled={tokenLoading || !tokenId.trim()}
+                className="shrink-0 text-[12px] font-bold px-3.5 rounded-xl border border-glassline text-creamdim hover:text-cream transition-colors disabled:opacity-50"
+              >
+                {tokenLoading ? "…" : "Add"}
+              </button>
+            </div>
+            {tokenError && (
+              <p className="flex items-start gap-1.5 text-[11px] text-creamdim leading-relaxed -mt-1">
+                <Warning size={13} weight="fill" className="shrink-0 mt-px text-down" aria-hidden />
+                Couldn&apos;t find a card with that token ID.
+              </p>
+            )}
           </div>
         ) : (
           <div className="flex flex-col gap-3">
@@ -447,9 +666,10 @@ function RegisterModal({
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={c.imageUrl} alt={c.name} draggable={false} className="w-full aspect-[5/7] object-cover" />
-                    {/* 카드 코드 — 같은 캐릭터 판본이 수십 장일 때 유일한 구분자 */}
+                    {/* 카드 코드 — 같은 캐릭터 판본이 수십 장일 때 유일한 구분자.
+                        일본판은 내부 id 대신 세트코드(SM8b 등)가 카드 실물 라벨과 대응 */}
                     <span className="block text-center text-[9px] font-bold text-creamdim py-0.5 truncate">
-                      {c.id}
+                      {c.id.startsWith("jp-") && c.setName ? c.setName : c.id}
                     </span>
                   </button>
                 ))}
@@ -467,12 +687,24 @@ function RegisterModal({
               <input value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="Grade (PSA 10)" className={inputCls} />
               <input value={franchise} onChange={(e) => setFranchise(e.target.value)} placeholder="Franchise" className={inputCls} />
             </div>
-            <input
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="Card image URL (auto-filled when you pick a card)"
-              className={inputCls}
-            />
+            {/* 이미지 URL은 검색에서 카드를 고르면 자동 세팅.
+                검색 DB에 없는 카드(일본판 프로모 등)만 직접 URL을 붙일 수 있게 토글로 제공 */}
+            {showImageInput ? (
+              <input
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                placeholder="Card image URL"
+                className={inputCls}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowImageInput(true)}
+                className="self-start text-[11px] font-semibold text-creamdim hover:text-cream transition-colors"
+              >
+                Can&apos;t find your card? Paste an image URL
+              </button>
+            )}
             <button
               onClick={() =>
                 name.trim() &&
@@ -486,7 +718,7 @@ function RegisterModal({
               disabled={!name.trim()}
               className="bg-amber text-inkdark font-bold rounded-xl px-5 py-2.5 text-sm hover:brightness-110 transition disabled:opacity-40"
             >
-              Add to showcase
+              {editing ? "Save changes" : "Add to showcase"}
             </button>
           </div>
         )}
@@ -560,10 +792,12 @@ function GameSelect({ value, onChange }: { value: string; onChange: (id: string)
 function CardDetail({
   card,
   onRemove,
+  onEdit,
   onClose,
 }: {
   card: ShelfCard;
   onRemove: (id: string) => void;
+  onEdit: (c: ShelfCard) => void;
   onClose: () => void;
 }) {
   const up = (card.delta30d ?? 0) >= 0;
@@ -628,7 +862,8 @@ function CardDetail({
             )}
           </div>
         )}
-        {card.origin === "physical" && (
+        {/* 직접 등록한 카드(실물/온체인 수동 등록)만 수정·삭제 — 프로필 동기화 카드는 Renaiss에서 관리 */}
+        {(card.origin === "physical" || card.fromDb) && (
           confirmingRemove ? (
             <div className="flex items-center gap-3 text-[11px] font-bold">
               <span className="text-creamdim">Remove for good?</span>
@@ -646,12 +881,21 @@ function CardDetail({
               </button>
             </div>
           ) : (
-            <button
-              onClick={() => setConfirmingRemove(true)}
-              className="text-[11px] font-bold text-down/80 hover:text-down transition-colors"
-            >
-              Remove from showcase
-            </button>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => onEdit(card)}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-creamdim hover:text-amber transition-colors"
+              >
+                <PencilSimple size={12} weight="bold" aria-hidden />
+                Edit card
+              </button>
+              <button
+                onClick={() => setConfirmingRemove(true)}
+                className="text-[11px] font-bold text-down/80 hover:text-down transition-colors"
+              >
+                Remove from showcase
+              </button>
+            </div>
           )
         )}
       </div>
@@ -743,42 +987,60 @@ function Shelves({
   );
 }
 
-/** PSA 스타일 등급 슬랩.
- *  - imageUrl 있음: 실카드 사진 자체가 이미 슬랩(케이스+라벨) — 프레임 없이 그대로, 칸을 꽉 채움
- *  - imageUrl 없음: emoji+tint 플레이스홀더를 자체 케이스+라벨로 감쌈 */
+/** PSA 스타일 등급 슬랩 — 모든 카드가 같은 케이스+라벨(이름·등급) 형식.
+ *  - 실물 카드: 검색 이미지(순수 카드 아트)를 그대로 아트 칸에
+ *  - 온체인(Renaiss) 카드: 슬랩 렌더 사진에서 카드 부분만 잘라 아트 칸에 (사진 속 PSA 라벨은
+ *    우리 라벨과 중복이라 크롭)
+ *  - 이미지 없음: emoji+tint 플레이스홀더 */
 function GradedSlab({ card, large = false }: { card: ShelfCard; large?: boolean }) {
-  if (card.imageUrl) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={card.imageUrl}
-        alt={card.name}
-        title={`${card.name} · ${card.grade}`}
-        draggable={false}
-        className="w-full aspect-[3/5] object-contain object-bottom select-none drop-shadow-[0_8px_20px_rgba(0,0,0,0.55)]"
-      />
-    );
-  }
+  // Renaiss 이름은 "PSA 10 Gem Mint 2025 ... #132 Mienshao"처럼 길다 — 라벨엔 카드명만
+  const label =
+    card.origin === "onchain" ? (card.name.match(/#\d+\s+(.+)$/)?.[1] ?? card.name) : card.name;
+  // 등급도 라벨 배지엔 "PSA 10"까지만 (풀 등급명은 상세에서)
+  const gradeShort = card.grade.match(/^(?:PSA|BGS|CGC|SGC)\s*\d+(?:\.\d+)?/i)?.[0] ?? card.grade;
+
   return (
     <div className="relative rounded-[10px] border border-cream/25 bg-gradient-to-b from-cream/[0.10] to-cream/[0.03] p-[5%] shadow-[inset_0_1px_0_theme(colors.cream/20%),0_6px_18px_rgba(0,0,0,0.45)]">
-      {/* 라벨 */}
+      {/* 라벨 — 이름 + 등급 */}
       <div className="flex items-center justify-between gap-1 rounded-[5px] bg-inkdark border border-glassline px-[7%] py-[4%] mb-[5%]">
         <span className={`font-bold text-cream truncate ${large ? "text-[12px]" : "text-[10px]"}`}>
-          {card.name}
+          {label}
         </span>
         <span
           className={`shrink-0 font-extrabold rounded-[3px] bg-amber text-inkdark px-1 ${large ? "text-[12px]" : "text-[10px]"}`}
         >
-          {card.grade}
+          {gradeShort}
         </span>
       </div>
-      {/* 카드 아트 (플레이스홀더 — 실카드 이미지가 없을 때) */}
-      <div
-        className="aspect-[5/7] rounded-[6px] overflow-hidden border border-cream/10 flex items-center justify-center"
-        style={{ background: card.tint }}
-      >
-        <Cards size={large ? 56 : 30} weight="duotone" className="text-cream/50" aria-hidden />
-      </div>
+      {/* 카드 아트 — 실카드 이미지 / 슬랩 렌더 크롭 / 플레이스홀더 */}
+      {card.imageUrl && card.origin === "onchain" ? (
+        // Renaiss 슬랩 렌더(440×440 정사각)에서 카드 창 부분(x136–306, y112–342 실측)만
+        // 확대해 보여준다 — 사진 속 PSA 라벨·크롬 케이스는 우리 라벨과 중복이라 크롭
+        <div className="w-full aspect-[5/7] rounded-[6px] overflow-hidden border border-cream/10 select-none">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={card.imageUrl}
+            alt={card.name}
+            draggable={false}
+            className="w-[268%] max-w-none -ml-[84.5%] -mt-[68%]"
+          />
+        </div>
+      ) : card.imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={card.imageUrl}
+          alt={card.name}
+          draggable={false}
+          className="w-full aspect-[5/7] rounded-[6px] object-cover border border-cream/10 select-none"
+        />
+      ) : (
+        <div
+          className="aspect-[5/7] rounded-[6px] overflow-hidden border border-cream/10 flex items-center justify-center"
+          style={{ background: card.tint }}
+        >
+          <Cards size={large ? 56 : 30} weight="duotone" className="text-cream/50" aria-hidden />
+        </div>
+      )}
       {/* 케이스 사선 광택 */}
       <span
         aria-hidden

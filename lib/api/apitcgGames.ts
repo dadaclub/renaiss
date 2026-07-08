@@ -29,7 +29,14 @@ export const APITCG_GAMES: ApiTcgGame[] = [
     ],
     codeSearch: true,
   },
-  { id: "pokemon", label: "Pokémon", franchise: "Pokémon", imageHosts: ["images.pokemontcg.io"] },
+  {
+    id: "pokemon",
+    label: "Pokémon",
+    franchise: "Pokémon",
+    // www.pokemon-card.com = 일본판 공식 DB (lib/api/pokemonJp.ts가 검색 결과에 합류)
+    // cdn.malie.io = 최신 영어판(SV 후기~) 이미지 CDN — apitcg가 이 호스트를 반환
+    imageHosts: ["images.pokemontcg.io", "www.pokemon-card.com", "cdn.malie.io"],
+  },
   {
     id: "digimon",
     label: "Digimon",

@@ -38,10 +38,11 @@ function mapCards(data: { data?: ApiTcgCardRaw[] }): OnePieceCard[] {
   return (data.data ?? [])
     .map((c) => {
       const imageUrl = c.images?.large || c.images?.small || "";
-      // id는 이미지 파일명 기준 (같은 코드의 판본들 OP01-016 / OP01-016_p1 을 구분 — React key 충돌 방지)
+      // id는 이미지 파일명 기준 (같은 코드의 판본들 OP01-016 / OP01-016_p1 을 구분 — React key 충돌 방지).
+      // 파일명에서 못 뽑으면 c.id(세트-번호, 예: mcd17-8) — c.code("6/12" 식)는 세트 간 중복이라 key로 못 씀.
       const file = cardFileKey(imageUrl);
       return {
-        id: file ?? c.code ?? c.id,
+        id: file ?? c.id ?? c.code,
         name: c.name,
         rarity: c.rarity,
         type: c.type,
@@ -189,6 +190,24 @@ export async function searchTcgCards(game: ApiTcgGame, query: string, limit = 24
         const extra = await probeMissingParallels(code, byCode);
         return dedupeByImage([...byCode, ...extra]);
       }
+    }
+  }
+
+  // 1b) 포켓몬 영어판 세트ID 검색 — 카드 하단 "SVP 173" 표기 그대로 (svp 173 / svp-173).
+  //     "세트코드 + 숫자" 형태만 (숫자로 시작하는 번호). "meowth sv-p"(이름+세트)는 일본판 검색이 처리.
+  if (game.id === "pokemon") {
+    const m = query.trim().match(/^([a-z][a-z0-9.]{1,9})[\s-]+(\d+[a-z]*)$/i);
+    if (m) {
+      const byId = await fetchCards(game.id, "id", `${m[1].toLowerCase()}-${m[2]}`, limit, key);
+      if (byId.length > 0) return byId;
+    }
+    // 이름 + 콜렉터 번호 (예: "rayquaza vmax 218") — 이름 검색 후 번호로 필터.
+    // apitcg 포켓몬 id가 "세트-번호"(swsh7-218) 형태라 뒤 번호 매칭으로 좁힐 수 있다.
+    const nm = query.trim().match(/^(.+?[a-z])\s+(\d{1,4})$/i);
+    if (nm) {
+      const byName = await fetchCards(game.id, "name", nm[1], limit, key);
+      const byNumber = byName.filter((c) => c.id.toLowerCase().endsWith(`-${nm[2].toLowerCase()}`));
+      if (byNumber.length > 0) return byNumber;
     }
   }
 
