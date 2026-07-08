@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SPOTS, Spot, SpotId, ROOM_IMG } from "@/lib/spots";
+import { getRoom, HOME_ROOM_ID } from "@/lib/rooms";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 import { BackgroundMusic } from "./BackgroundMusic";
 import { ClickSound } from "./ClickSound";
@@ -9,7 +10,9 @@ import { LoginIntro } from "./LoginIntro";
 import { ObjectScreen } from "./ObjectScreen";
 import { OverlayEditor } from "./OverlayEditor";
 import { OverlayQuad } from "./OverlayQuad";
+import { RoomProvider } from "./RoomContext";
 import { SnackHoverSound } from "./SnackHoverSound";
+import { ArrowLeft } from "@phosphor-icons/react";
 
 /**
  * 방 씬.
@@ -17,25 +20,61 @@ import { SnackHoverSound } from "./SnackHoverSound";
  * - 로그인 후: 오브젝트 클릭 → 방 위에 새 화면(ObjectScreen)이 뜸. 방 자체는 확대 안 함
  *   (참고 구조: 방=배경판+가구 스티커 / 오브젝트 화면=또 다른 배경판+개별 물체 스티커).
  * - 핸드폰(로그인 후): 로그아웃 화면.
+ * - 방문(?room=<id>): 방명록에서 다른 유저를 누르면 그 방으로. 읽기 전용(편집 숨김),
+ *   로그인 게이트 건너뛰고 바로 밝은 방. SBT·카드는 그 방 주인 것으로 로드.
  */
 export function Scene() {
   // entered = 스플래시를 탭해 방으로 입장(밝아짐). loggedIn = 방 안에서 폰을 눌러 로그인 완료.
-  // 입장했지만 로그인 전엔 폰만 클릭 가능(로그인 게이트), 로그인해야 나머지 오브젝트가 열린다.
   const [entered, setEntered] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
   const [active, setActive] = useState<SpotId | null>(null);
   const [hovered, setHovered] = useState<SpotId | null>(null); // 호버 중인 스팟 — 오버레이(액자 사진) pop용
+  // 현재 보고 있는 방 — SSR 안전 기본 홈, 마운트 후 URL ?room= 반영 (하이드레이션 일치)
+  const [roomId, setRoomId] = useState<string>(HOME_ROOM_ID);
   const sceneRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState(""); // 로그인 연출(폰 줌)에만 사용
   // 개발용: ?edit 쿼리로 오버레이(액자 사진) 위치·크기·기울기를 직접 드래그해 맞추는 편집기
   const [edit, setEdit] = useState(false);
   const [editSpotId, setEditSpotId] = useState<SpotId>("photo"); // 편집기에서 치수 재는 대상 스팟
+  // 방 이동 연출 — 화면을 덮고 팩맨이 점 먹는 로딩을 보여준 뒤 새 방을 드러냄
+  const [moving, setMoving] = useState(false);
+
+  const room = getRoom(roomId);
+  const isVisiting = roomId !== HOME_ROOM_ID;
+  // 방문 중엔 스플래시/로그인 없이 바로 밝은 방 + 오브젝트 열람(읽기 전용)
+  const roomBright = entered || isVisiting;
+  const objectsReady = loggedIn || isVisiting;
+
+  // URL ?room= 를 상태에 반영 (마운트 + 뒤로가기)
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).has("edit")) {
-      setEdit(true);
-      setEntered(true); // 편집 중엔 스플래시/로그인 건너뛰고 밝은 방 바로 표시
-      setLoggedIn(true); // 편집 중엔 모든 오브젝트 활성화
-    }
+    const sync = () => {
+      const p = new URLSearchParams(window.location.search);
+      if (p.has("edit")) {
+        setEdit(true);
+        setEntered(true); // 편집 중엔 스플래시/로그인 건너뛰고 밝은 방 바로 표시
+        setLoggedIn(true); // 편집 중엔 모든 오브젝트 활성화
+      }
+      setRoomId(getRoom(p.get("room")).id);
+    };
+    sync();
+    window.addEventListener("popstate", sync);
+    return () => window.removeEventListener("popstate", sync);
+  }, []);
+
+  // 방 이동 — 커버 페이드인 → (가려진 채) 방 교체 → 페이드아웃. 공유 URL도 갱신.
+  const visitRoom = useCallback((id: string) => {
+    const target = getRoom(id);
+    setActive(null);
+    setTransform("");
+    setMoving(true);
+    // 커버가 화면을 덮은 뒤 방을 바꾼다 (전환이 안 보이게)
+    window.setTimeout(() => {
+      setRoomId(target.id);
+      const url = target.id === HOME_ROOM_ID ? "/" : `/?room=${target.id}`;
+      window.history.pushState({}, "", url);
+    }, 900);
+    // 새 방을 드러내며 커버 페이드아웃 (총 ~2.2초)
+    window.setTimeout(() => setMoving(false), 1950);
   }, []);
 
   const select = (spot: Spot) => {
@@ -44,6 +83,8 @@ export function Scene() {
       window.open(spot.href, "_blank", "noopener,noreferrer");
       return;
     }
+    // 방문 중 폰은 비활성 (홈 계정 로그아웃은 내 방에서만)
+    if (spot.id === "phone" && isVisiting) return;
     if (spot.id === "phone" && !loggedIn) {
       // 로그인 연출: 핸드폰으로 줌인 (이것만 카메라 이동. 나머지는 새 화면을 위에 띄움)
       const el = sceneRef.current;
@@ -78,58 +119,57 @@ export function Scene() {
   useEscapeToClose(close, active !== null);
 
   return (
+    <RoomProvider value={{ room, isOwnRoom: !isVisiting, visitRoom }}>
     <main className="fixed inset-0 overflow-hidden flex items-center justify-center bg-room-ambient">
-      {/* scene */}
+      {/* 프레임 = 방 이미지 정사각형. overflow-hidden으로 줌·오브젝트 화면을 이 안에 가둔다
+          (정사각형 밖 검은 여백으론 절대 안 넘침). */}
+      <div className="relative shrink-0 w-[min(100vw,100vh)] aspect-square overflow-hidden">
+      {/* 카메라 = 폰 로그인 줌 대상. 프레임이 클립하므로 줌이 정사각형 밖으로 안 넘친다. */}
       <div
         ref={sceneRef}
         style={{ transform, transitionProperty: "transform", transitionDuration: "0.85s" }}
-        className="relative shrink-0 w-[min(100vw,100vh)] aspect-square ease-camera"
+        className="absolute inset-0 ease-camera"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={ROOM_IMG} alt="My room (sketch)" className="block w-full h-full select-none" draggable={false} />
 
-        {/* 방 아트 위에 얹는 오브젝트 사진 (예: 액자 속 사진).
-            액자 개구부 네 꼭짓점(corners)에 맞춰 원근(matrix3d)으로 사진을 끼워 넣는다.
-            방 배경의 일부처럼 어둠 레이어 아래에 두어 로그인 연출과 함께 밝아짐.
-            클릭은 위에 겹친 Hotspot 버튼이 받으므로 여기선 pointer-events 없음. */}
+        {/* 방 아트 위에 얹는 오브젝트 사진 (예: 액자 속 사진). */}
         {SPOTS.map((s) =>
-          // 편집 중인 오버레이는 정적 렌더를 건너뛰고 OverlayEditor가 대신 그린다
           s.overlay && !(edit && s.id === editSpotId) ? (
             <OverlayQuad
               key={`overlay-${s.id}`}
               src={s.overlay.src}
               corners={s.overlay.corners}
               sceneRef={sceneRef}
-              // 핫스팟 호버 시 사진째로 살짝 확대(pop) — 다른 오브젝트와 동일한 느낌
-              hovered={loggedIn && !active && hovered === s.id}
+              hovered={objectsReady && !active && hovered === s.id}
               className="shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
             />
           ) : null
         )}
 
-        {/* 로그인 전: 방 전체를 은은히 어둡게 (스플래시 비네트와 함께 무드 형성. 입장하면 페이드아웃) */}
+        {/* 로그인 전: 방 전체를 은은히 어둡게 (입장/방문하면 페이드아웃) */}
         <div
           className={`absolute inset-0 bg-[rgba(6,4,3,0.5)] transition-opacity duration-[900ms] pointer-events-none ${
-            entered ? "opacity-0" : "opacity-100"
+            roomBright ? "opacity-0" : "opacity-100"
           }`}
         />
 
         {SPOTS.map((s, i) => {
           const isPhone = s.id === "phone";
-          // 로그인 전엔 폰만(로그인 게이트), 로그인 후엔 전부. 화면 열림(active) 중엔 잠금.
-          const enabled = (loggedIn ? true : isPhone) && !active && !edit;
+          // 로그인 전엔 폰만(로그인 게이트), 로그인/방문 후엔 전부. 화면 열림(active) 중엔 잠금.
+          // 방문 중엔 폰 제외(홈 계정 전용).
+          const enabled =
+            (isVisiting ? !isPhone : objectsReady ? true : isPhone) && !active && !edit;
           return (
             <Hotspot
               key={s.id}
               spot={s}
               disabled={!enabled}
-              // 오버레이 사진이 있는 스팟(액자)은 빈 프레임 복제 팝이 사진을 덮으므로 끔
-              // (대신 OverlayQuad가 hovered로 사진째 확대됨)
-              pop={entered && !s.overlay}
-              // 입장 후 로그인 전 — 폰이 진동하며 "눌러서 로그인"을 유도 (열면 멈춤)
-              ring={isPhone && entered && !loggedIn && !active}
-              // 로그인 직후 오브젝트들이 차례로 한 번씩 빛남 — "이제 눌러볼 수 있다"는 피드백
-              wake={loggedIn}
+              pop={roomBright && !s.overlay}
+              // 폰 진동 유도 — 내 방 로그인 전에만
+              ring={isPhone && entered && !loggedIn && !active && !isVisiting}
+              // 로그인 직후 웨이크 글로우 — 내 방에서만
+              wake={loggedIn && !isVisiting}
               wakeDelay={i * 0.12}
               onHover={(sp, h) => setHovered(h ? sp.id : (cur) => (cur === sp.id ? null : cur))}
               onSelect={select}
@@ -137,11 +177,8 @@ export function Scene() {
           );
         })}
 
-        {/* 과자봉지 호버 사운드 — 클릭 기능은 아직 없고(candy-bag-crumple 브랜치 미병합), 마우스 오버 시 부스럭 소리만 */}
-        <SnackHoverSound active={loggedIn && !active} />
+        <SnackHoverSound active={objectsReady && !active} />
 
-        {/* 개발용 오버레이 편집기 (?edit) — 아무 스팟이나 네 꼭짓점을 드래그해 치수 확정.
-            key로 스팟 전환 시 편집기를 리마운트해 상태를 새 스팟 값으로 초기화. */}
         {edit && (
           <OverlayEditor
             key={editSpotId}
@@ -151,47 +188,127 @@ export function Scene() {
           />
         )}
       </div>
+      {/* ↑ 카메라 끝. 아래는 프레임 직속 — 줌 안 되고 방 정사각형 기준으로 붙음. */}
 
-      {/* 진입 스플래시 — 어두운 방과 폰 불빛이 주인공, 브랜딩은 좌하단에 비켜서 있음.
-          화면 아무 곳이나 탭하면 방으로 입장(밝아짐). 로그인은 방 안에서 폰을 눌러야 진행된다.
-          입장(entered)하면 페이드아웃한다. */}
-      {!edit && (
-        <button
-          type="button"
-          onClick={() => setEntered(true)}
-          aria-label="Tap to enter the room"
-          className={`absolute inset-0 z-40 block text-left transition-opacity duration-[900ms] ${
-            entered || active ? "opacity-0 pointer-events-none" : "opacity-100"
-          }`}
-        >
-          {/* 비네트 — 가운데 아래(폰 불빛 자리)는 열어두고 가장자리로 갈수록 어둡게 */}
-          <span
-            aria-hidden
-            className="absolute inset-0 bg-[radial-gradient(ellipse_70%_58%_at_50%_58%,theme(colors.bg/0%),theme(colors.bg/55%)_62%,theme(colors.bg/95%)),linear-gradient(to_bottom,theme(colors.bg/95%),theme(colors.bg/0%)_22%,theme(colors.bg/0%)_72%,theme(colors.bg/95%))]"
-          />
-          <span className="absolute left-7 bottom-7 sm:left-12 sm:bottom-12 flex flex-col items-start">
-            <span className="text-cream font-serif text-5xl sm:text-6xl leading-none">CardScene</span>
-            <span className="mt-3 text-creamdim text-sm sm:text-base">
-              A room for your TCG collection.
+      {/* 아래 요소들은 방 이미지 정사각형 기준으로 붙는다 (뷰포트 끝이 아니라 방 가장자리). */}
+
+        {/* 진입 스플래시 — 내 방 첫 진입에만 (방문 중엔 없음). 방 이미지 위에 얹힘. */}
+        {!edit && !isVisiting && (
+          <button
+            type="button"
+            onClick={() => setEntered(true)}
+            aria-label="Tap to enter the room"
+            className={`absolute inset-0 z-40 block text-left transition-opacity duration-[900ms] ${
+              entered || active ? "opacity-0 pointer-events-none" : "opacity-100"
+            }`}
+          >
+            <span
+              aria-hidden
+              className="absolute inset-0 bg-[radial-gradient(ellipse_70%_58%_at_50%_58%,theme(colors.bg/0%),theme(colors.bg/55%)_62%,theme(colors.bg/95%)),linear-gradient(to_bottom,theme(colors.bg/95%),theme(colors.bg/0%)_22%,theme(colors.bg/0%)_72%,theme(colors.bg/95%))]"
+            />
+            <span className="absolute left-6 bottom-6 sm:left-9 sm:bottom-9 flex flex-col items-start">
+              <span className="text-cream font-serif text-4xl sm:text-5xl leading-none">CardScene</span>
+              <span className="mt-2.5 text-creamdim text-sm">
+                A room for your TCG collection.
+              </span>
+              <span className="mt-4 text-amber text-[11px] font-semibold uppercase tracking-[0.22em] animate-tap-hint motion-reduce:animate-none">
+                Tap anywhere to step inside
+              </span>
             </span>
-            <span className="mt-5 text-amber text-[12px] font-semibold uppercase tracking-[0.22em] animate-tap-hint motion-reduce:animate-none">
-              Tap anywhere to step inside
+          </button>
+        )}
+
+        {/* 방문 배너 — 방 이미지 상단 중앙 */}
+        {isVisiting && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-glass border border-glassline text-cream text-xs font-bold px-4 py-2.5 rounded-full backdrop-blur-md">
+            <span>
+              Visiting <span className="text-amber">{room.ownerName}</span>&apos;s room
             </span>
-          </span>
-        </button>
-      )}
+            <span className="w-px h-4 bg-glassline" aria-hidden />
+            <button
+              onClick={() => visitRoom(HOME_ROOM_ID)}
+              className="inline-flex items-center gap-1 hover:text-amber transition-colors"
+            >
+              <ArrowLeft size={13} weight="bold" aria-hidden />
+              Back to my room
+            </button>
+          </div>
+        )}
 
-      {/* 로그인 폼 — 방 안에서 폰을 눌렀을 때(로그인 전). 열면 바로 Authorize, Cancel은 방으로 */}
-      {!loggedIn && active === "phone" && <LoginIntro onLogin={login} onCancel={close} />}
+        {/* 프로필 배지 — 방 이미지 우하단, 스피커 버튼 옆. 아바타 + 닉네임만. */}
+        {objectsReady && !active && !edit && (
+          <div className="absolute bottom-5 right-16 z-30 flex items-center gap-2 h-9 pl-1 pr-3 rounded-full bg-glass border border-glassline backdrop-blur-md">
+            <span className="w-7 h-7 rounded-full overflow-hidden bg-inkdark border border-amber/40 shrink-0">
+              {room.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={room.avatarUrl} alt="" className="w-full h-full object-cover" draggable={false} />
+              ) : null}
+            </span>
+            <span className="text-cream text-xs font-bold">{room.ownerName}</span>
+          </div>
+        )}
 
-      {/* 오브젝트 새 화면 (로그인 후) */}
-      {loggedIn && active && <ObjectScreen spot={active} onClose={close} onLogout={logout} />}
+        {/* 배경음악/스피커 — 방 이미지 우하단 */}
+        <BackgroundMusic active={objectsReady} />
 
-      {/* 배경음악 — 로그인 후 계속 재생, 우하단 아이콘으로 음소거 토글 */}
-      <BackgroundMusic active={loggedIn} />
+        {/* 오브젝트 화면/로그인 레이어 — 방 정사각형 안에만. transform(translateZ) 덕에
+            화면들의 fixed inset-0 이 이 레이어(=정사각형) 기준이 되고, 프레임 overflow-hidden이 클립.
+            → 진열장·앨범·방명록 등 모든 오브젝트가 방 이미지 밖으로 안 넘친다. */}
+        {active && (
+          <div className="absolute inset-0 z-50" style={{ transform: "translateZ(0)" }}>
+            {/* 로그인 폼 — 내 방에서 폰을 눌렀을 때(로그인 전) */}
+            {!isVisiting && !loggedIn && active === "phone" && (
+              <LoginIntro onLogin={login} onCancel={close} />
+            )}
+            {/* 오브젝트 새 화면 (로그인 후 또는 방문 중) */}
+            {objectsReady && <ObjectScreen spot={active} onClose={close} onLogout={logout} />}
+          </div>
+        )}
+      </div>
 
       {/* 전역 클릭음 — 모든 클릭 가능한 요소에 통일된 UI 클릭음 */}
       <ClickSound />
+
+      {/* 방 이동 연출 — 화면을 덮고 팩맨이 점을 먹는 작은 로딩. 멘트 없음. */}
+      <div
+        aria-hidden={!moving}
+        className={`fixed inset-0 z-[70] flex items-center justify-center bg-bg transition-opacity duration-300 ${
+          moving ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
+      >
+        {/* 팩맨(왼쪽, 입 짝짝) + 오른쪽에서 다가와 먹히는 점들. color=amber를 currentColor로 상속 */}
+        <div className="relative w-[96px] h-6 text-amber" aria-hidden>
+          <span className="pac absolute left-0 top-0.5" />
+          {[0, 1, 2].map((i) => (
+            <span key={i} className="pdot" style={{ animationDelay: `${i * 0.4}s` }} />
+          ))}
+        </div>
+      </div>
+
+      <style>{`
+        .pac {
+          width: 20px; height: 20px; background: currentColor; border-radius: 50%;
+          animation: pac-chomp 0.45s linear infinite;
+        }
+        @keyframes pac-chomp {
+          0%, 100% { clip-path: polygon(100% 25%, 45% 50%, 100% 75%, 100% 100%, 0 100%, 0 0, 100% 0); }
+          50%      { clip-path: polygon(100% 48%, 45% 50%, 100% 52%, 100% 100%, 0 100%, 0 0, 100% 0); }
+        }
+        .pdot {
+          position: absolute; top: 9px; width: 5px; height: 5px; border-radius: 50%;
+          background: currentColor; animation: pac-eat 1.2s linear infinite;
+        }
+        @keyframes pac-eat {
+          0%   { left: 92px; opacity: 1; }
+          78%  { left: 24px; opacity: 1; }
+          82%  { left: 22px; opacity: 0; }
+          100% { left: 22px; opacity: 0; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .pac, .pdot { animation: none; }
+        }
+      `}</style>
     </main>
+    </RoomProvider>
   );
 }

@@ -19,6 +19,7 @@ import { Chip } from "@/components/ui/Chip";
 import { fmtUsd } from "@/lib/mockCards";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 import { supabase } from "@/lib/supabase";
+import { useRoom } from "../RoomContext";
 
 /**
  * 카드 진열장 화면.
@@ -60,9 +61,9 @@ interface ShelfCard {
  *  /api/showcase = 공개 프로필의 favoritedCollectibles (유저가 직접 올린 카드). 비면 빈 배열.
  *  실패(오프라인/장애) 시에만 fromFallback=true — 가짜 카드는 더 이상 채우지 않고 빈 선반 유지.
  *  참고: 공개 API엔 "지갑주소 보유 카드" 엔드포인트가 없어 유저 ID 쇼케이스만 유저 스코프. */
-async function fetchOnchainCards(): Promise<{ cards: ShelfCard[]; fromFallback: boolean }> {
+async function fetchOnchainCards(user?: string): Promise<{ cards: ShelfCard[]; fromFallback: boolean }> {
   try {
-    const res = await fetch("/api/showcase");
+    const res = await fetch(`/api/showcase${user ? `?user=${encodeURIComponent(user)}` : ""}`);
     if (res.ok) {
       const { cards } = (await res.json()) as {
         cards: {
@@ -125,14 +126,19 @@ function rowToCard(r: SavedRow, i: number): ShelfCard {
   };
 }
 
-/** 직접 등록한 카드 로드 (Supabase). 테이블 미생성/장애 시 빈 배열 — 화면은 그대로 동작. */
-async function fetchSavedCards(): Promise<ShelfCard[]> {
-  const { data, error } = await supabase
+/** 직접 등록한 카드 로드 (Supabase) — 해당 방(room_id)의 카드만. 테이블 미생성/장애 시 빈 배열. */
+async function fetchSavedCards(roomId: string): Promise<ShelfCard[]> {
+  // room_id 컬럼이 있으면 그 방 카드만, 없으면(구스키마) 전체 — 폴백 안전
+  let res = await supabase
     .from("showcase_cards")
     .select("*")
+    .eq("room_id", roomId)
     .order("created_at", { ascending: true });
-  if (error || !data) return [];
-  return (data as SavedRow[]).map(rowToCard);
+  if (res.error) {
+    res = await supabase.from("showcase_cards").select("*").order("created_at", { ascending: true });
+  }
+  if (res.error || !res.data) return [];
+  return (res.data as SavedRow[]).map(rowToCard);
 }
 
 /** 온체인 카드 수동 등록용 — /api/showcase?ids= 응답 카드 */
@@ -200,6 +206,7 @@ interface PhysicalInput {
 }
 
 export function CabinetScreen({ onClose }: { onClose: () => void }) {
+  const { room, isOwnRoom } = useRoom(); // 현재 보는 방 — 방문 중이면 isOwnRoom=false(읽기 전용)
   const [cards, setCards] = useState<ShelfCard[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [synced, setSynced] = useState(false);
@@ -208,7 +215,7 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
   const [modal, setModal] = useState<ModalState>(null);
   const [selected, setSelected] = useState<ShelfCard | null>(null);
 
-  // 폰 로그인(목)을 이미 통과한 상태라는 전제 — 마운트 시 지갑 카드 + 등록 카드 자동 로드
+  // 마운트 시 이 방 주인의 온체인 카드 + 등록 카드 자동 로드
   useEffect(() => {
     syncWallet();
     loadSaved();
@@ -217,7 +224,7 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
 
   async function syncWallet() {
     setSyncing(true);
-    const { cards: onchain, fromFallback } = await fetchOnchainCards();
+    const { cards: onchain, fromFallback } = await fetchOnchainCards(room.renaissUser);
     // 직접 등록한 카드(fromDb — 실물/온체인 모두)는 동기화로 덮어쓰지 않는다
     setCards((prev) => [...onchain, ...prev.filter((c) => c.fromDb)]);
     setSyncing(false);
@@ -225,9 +232,9 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
     setSyncError(fromFallback);
   }
 
-  /** Supabase에 저장해둔 등록 카드 로드 — 새로고침해도 유지되는 부분 */
+  /** Supabase에 저장해둔 등록 카드 로드 — 이 방(room.id)의 카드만, 새로고침해도 유지 */
   async function loadSaved() {
-    const saved = await fetchSavedCards();
+    const saved = await fetchSavedCards(room.id);
     if (saved.length === 0) return;
     setCards((prev) => [...prev.filter((c) => !c.fromDb), ...saved]);
   }
@@ -248,11 +255,11 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
     };
     let { data } = await supabase
       .from("showcase_cards")
-      .insert({ ...base, origin: input.origin, token_id: input.tokenId ?? null })
+      .insert({ ...base, origin: input.origin, token_id: input.tokenId ?? null, room_id: room.id })
       .select("id")
       .single();
     if (!data) {
-      // origin/token_id 컬럼이 아직 없는 구스키마 — 기본 필드만으로 재시도
+      // origin/token_id/room_id 컬럼이 아직 없는 구스키마 — 기본 필드만으로 재시도
       ({ data } = await supabase.from("showcase_cards").insert(base).select("id").single());
     }
     if (data) id = (data as { id: string }).id;
@@ -393,16 +400,23 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
           ) : visible.length === 0 ? (
             <div className="h-[52vh] flex flex-col items-center justify-center gap-3 text-creamdim text-sm">
               <Cards size={42} weight="duotone" className="text-amber/80" aria-hidden />
-              <p>This shelf is empty.</p>
-              <button
-                onClick={() => setModal("register")}
-                className="text-[12px] font-bold px-4 py-2 rounded-full bg-amber text-inkdark hover:brightness-110 transition"
-              >
-                Register your first card
-              </button>
+              <p>{isOwnRoom ? "This shelf is empty." : `${room.ownerName} hasn't added any cards yet.`}</p>
+              {isOwnRoom && (
+                <button
+                  onClick={() => setModal("register")}
+                  className="text-[12px] font-bold px-4 py-2 rounded-full bg-amber text-inkdark hover:brightness-110 transition"
+                >
+                  Register your first card
+                </button>
+              )}
             </div>
           ) : (
-            <Shelves cards={visible} onSelect={setSelected} onAdd={() => setModal("register")} />
+            // 방문 중(읽기 전용)엔 Add 슬롯 없음
+            <Shelves
+              cards={visible}
+              onSelect={setSelected}
+              onAdd={isOwnRoom ? () => setModal("register") : undefined}
+            />
           )}
         </div>
       </div>
@@ -433,6 +447,7 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
       {selected && (
         <CardDetail
           card={selected}
+          readOnly={!isOwnRoom}
           onRemove={removeCard}
           onEdit={(c) => {
             setSelected(null);
@@ -791,11 +806,14 @@ function GameSelect({ value, onChange }: { value: string; onChange: (id: string)
 
 function CardDetail({
   card,
+  readOnly = false,
   onRemove,
   onEdit,
   onClose,
 }: {
   card: ShelfCard;
+  /** 방문 중(남의 방) — 수정·삭제 숨김 */
+  readOnly?: boolean;
   onRemove: (id: string) => void;
   onEdit: (c: ShelfCard) => void;
   onClose: () => void;
@@ -862,8 +880,8 @@ function CardDetail({
             )}
           </div>
         )}
-        {/* 직접 등록한 카드(실물/온체인 수동 등록)만 수정·삭제 — 프로필 동기화 카드는 Renaiss에서 관리 */}
-        {(card.origin === "physical" || card.fromDb) && (
+        {/* 직접 등록한 카드(실물/온체인 수동 등록)만 수정·삭제. 방문 중(readOnly)엔 숨김 */}
+        {!readOnly && (card.origin === "physical" || card.fromDb) && (
           confirmingRemove ? (
             <div className="flex items-center gap-3 text-[11px] font-bold">
               <span className="text-creamdim">Remove for good?</span>

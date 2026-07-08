@@ -62,7 +62,9 @@ export async function GET(req: Request) {
     return NextResponse.json({ cards, source: "ids" });
   }
 
-  const user = process.env.RENAISS_SHOWCASE_USER;
+  // ?user= 로 특정 방 주인의 쇼케이스 카드 조회 (방문 기능). 없으면 env 기본값.
+  const user =
+    new URL(req.url).searchParams.get("user")?.trim() || process.env.RENAISS_SHOWCASE_USER;
   if (!user) return NextResponse.json({ cards: [] });
 
   try {
