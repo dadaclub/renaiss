@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
-import { listCollectibles, getCardDetail } from "@/lib/api/renaiss";
+import { getUserProfile } from "@/lib/api/renaiss";
 
 /**
- * 진열장용 카드 피드 — Renaiss 공개 API에서 실카드(이미지 포함)를 가져와 단순화해 반환.
- * 지금은 마켓플레이스 상위 목록을 데모로 사용.
- * TODO(A): bscscan으로 지갑 보유 tokenId를 구하면 그 ID들로 교체 (?ids=1,2,3)
+ * 진열장용 카드 피드 — Renaiss 공개 프로필의 "쇼케이스 카드"(favoritedCollectibles).
+ * 유저가 프로필에 직접 올린 카드만 반환 (앨범의 favoritedSBTs 와 동일 패턴). env RENAISS_SHOWCASE_USER.
+ * ⚠️ 예전엔 마켓플레이스 상위 8장을 데모로 넣었으나, 실제 소유 카드가 아니라 오해를 줘서 제거함.
+ *    공개 API엔 "지갑주소 보유 카드" 엔드포인트가 없음(마켓은 owner 필터 미지원). 유저 ID 쇼케이스가 유일한 유저 스코프.
+ * 비어있으면 빈 배열 → 진열장은 빈 선반(수동 등록 카드만) 표시.
  */
-
 export interface ShowcaseCardDto {
   tokenId: string;
   name: string;
@@ -21,43 +22,33 @@ export interface ShowcaseCardDto {
 
 export const revalidate = 300;
 
-const FRANCHISE_LABEL: Record<string, string> = {
-  POKEMON: "Pokémon",
-  ONE_PIECE: "One Piece",
-  SPORTS: "Sports",
-};
-
 export async function GET() {
+  const user = process.env.RENAISS_SHOWCASE_USER;
+  if (!user) return NextResponse.json({ cards: [] });
+
   try {
-    const listed = await listCollectibles({ limit: 8, sortBy: "fmvPriceInUsd", sortOrder: "desc" });
-    const cards: ShowcaseCardDto[] = await Promise.all(
-      listed.map(async (c) => {
-        let imageUrl: string | undefined;
-        let franchise = c.setName;
-        try {
-          const d = await getCardDetail(c.tokenId);
-          imageUrl = d.frontWithoutStandImageUrl ?? d.frontImageUrl;
-          if (d.type && FRANCHISE_LABEL[d.type]) franchise = FRANCHISE_LABEL[d.type];
-        } catch {
-          // 상세 실패 시 이미지 없이 목록 정보만 사용
-        }
+    const profile = await getUserProfile(user);
+    const cards: ShowcaseCardDto[] = profile.favoritedCollectibles
+      .map((c, i) => {
         const fmv = Number(c.fmvPriceInUSD);
         return {
-          tokenId: c.tokenId,
-          name: c.name,
-          setName: c.setName,
-          grade: `${c.gradingCompany} ${c.grade}`.trim(),
-          franchise,
-          year: c.year,
+          tokenId: String(c.tokenId ?? c.id ?? i),
+          name: c.name ?? c.title ?? "Untitled card",
+          setName: c.setName ?? "",
+          grade: [c.gradingCompany, c.grade].filter(Boolean).join(" ").trim(),
+          franchise: c.setName ?? "",
+          year: 0,
           priceUsd: Number.isFinite(fmv) ? fmv : undefined,
-          acquiredAt: c.ownerAcquiredAt?.slice(0, 10).replaceAll("-", "."),
-          imageUrl,
+          imageUrl: c.frontWithoutStandImageUrl ?? c.frontImageUrl ?? c.imageUrl,
         };
       })
-    );
-    return NextResponse.json({ cards });
+      // 이미지나 이름이 있는 카드만
+      .filter((c) => c.imageUrl || c.name !== "Untitled card");
+    return NextResponse.json({ cards, source: "showcase" });
   } catch (e) {
-    // 네트워크/API 장애 — 클라이언트가 목데이터로 폴백
-    return NextResponse.json({ cards: [], error: e instanceof Error ? e.message : "unknown" }, { status: 502 });
+    return NextResponse.json(
+      { cards: [], error: e instanceof Error ? e.message : "unknown" },
+      { status: 502 }
+    );
   }
 }

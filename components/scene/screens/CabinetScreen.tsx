@@ -13,7 +13,7 @@ import {
 } from "@phosphor-icons/react";
 import { ROOM_IMG } from "@/lib/spots";
 import { Chip } from "@/components/ui/Chip";
-import { MOCK_CARDS, fmtUsd } from "@/lib/mockCards";
+import { fmtUsd } from "@/lib/mockCards";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
 /**
@@ -49,14 +49,11 @@ interface ShelfCard {
   certNumber?: string; // 실물 카드(PSA)만
 }
 
-/** 온체인 보유 카드 조회.
- *  1차: Renaiss 공개 API(/api/showcase 프록시)에서 실카드+이미지 로드 (데모: 마켓 상위 8장)
- *  폴백: 오프라인/장애 시 MOCK_CARDS — 이때 fromFallback=true를 같이 반환해 UI가 알림을 띄울 수 있게 함
- *  TODO(A): bscscan으로 지갑 보유 tokenId 확보 → /api/showcase?ids= 로 교체 */
-async function fetchOnchainCards(
-  wallet: string
-): Promise<{ cards: ShelfCard[]; fromFallback: boolean }> {
-  void wallet;
+/** Renaiss 쇼케이스 카드 조회.
+ *  /api/showcase = 공개 프로필의 favoritedCollectibles (유저가 직접 올린 카드). 비면 빈 배열.
+ *  실패(오프라인/장애) 시에만 fromFallback=true — 가짜 카드는 더 이상 채우지 않고 빈 선반 유지.
+ *  참고: 공개 API엔 "지갑주소 보유 카드" 엔드포인트가 없어 유저 ID 쇼케이스만 유저 스코프. */
+async function fetchOnchainCards(): Promise<{ cards: ShelfCard[]; fromFallback: boolean }> {
   try {
     const res = await fetch("/api/showcase");
     if (res.ok) {
@@ -71,78 +68,36 @@ async function fetchOnchainCards(
           imageUrl?: string;
         }[];
       };
-      if (cards.length > 0) {
-        return {
-          fromFallback: false,
-          cards: cards.map((c, i) => ({
-            id: c.tokenId,
-            name: c.name,
-            grade: c.grade,
-            franchise: c.franchise,
-            emoji: "🎴",
-            tint: TINTS[i % TINTS.length],
-            imageUrl: c.imageUrl,
-            priceUsd: c.priceUsd,
-            acquiredAt: c.acquiredAt ?? "",
-            origin: "onchain" as const,
-          })),
-        };
-      }
+      return {
+        fromFallback: false,
+        cards: cards.map((c, i) => ({
+          id: c.tokenId,
+          name: c.name,
+          grade: c.grade,
+          franchise: c.franchise,
+          emoji: "🎴",
+          tint: TINTS[i % TINTS.length],
+          imageUrl: c.imageUrl,
+          priceUsd: c.priceUsd,
+          acquiredAt: c.acquiredAt ?? "",
+          origin: "onchain" as const,
+        })),
+      };
     }
   } catch {
-    // 폴백으로 진행
+    // 아래 실패 처리
   }
-  await new Promise((r) => setTimeout(r, 600)); // 목 레이턴시
-  return {
-    fromFallback: true,
-    cards: MOCK_CARDS.map((c) => ({
-      id: c.id,
-      name: c.name,
-      grade: c.grade,
-      franchise: c.franchise,
-      emoji: c.emoji,
-      tint: c.tint,
-      priceUsd: c.priceUsd,
-      delta30d: c.delta30d,
-      acquiredAt: c.acquiredAt,
-      origin: "onchain" as const,
-    })),
-  };
+  return { fromFallback: true, cards: [] };
 }
 
-/** PSA 인증번호 조회.
- *  1차: /api/psa/{cert} (실제 PSA Public API — PSA_API_TOKEN 설정 시 동작, 이미지 포함)
- *  폴백: 토큰 미설정/오프라인이면 데모용 목 결과 — fromFallback=true로 표시해 UI가 사용자에게 알림 */
-async function lookupCert(certNumber: string): Promise<{
+/** 원피스 카드 검색 결과 (apitcg 프록시 /api/opcard 응답 카드). 실물 카드 등록 시 이미지 자동 채움용. */
+interface OpSearchCard {
+  id: string;
   name: string;
-  grade: string;
-  franchise: string;
-  imageUrl?: string;
-  fromFallback: boolean;
-}> {
-  try {
-    const res = await fetch(`/api/psa/${encodeURIComponent(certNumber)}`);
-    if (res.ok) {
-      const d = (await res.json()) as {
-        name: string;
-        grade: string;
-        franchise: string;
-        imageUrl?: string;
-      };
-      if (d.name) return { ...d, fromFallback: false };
-    }
-  } catch {
-    // 폴백으로 진행
-  }
-  await new Promise((r) => setTimeout(r, 500));
-  // 목: 번호 끝자리로 그럴듯한 결과 생성
-  const last = certNumber.charCodeAt(certNumber.length - 1) % 3;
-  const pool = [
-    { name: "Pikachu Illustrator", grade: "PSA 9", franchise: "Pokémon" },
-    { name: "Shanks Alt Art", grade: "PSA 10", franchise: "One Piece" },
-    { name: "Umbreon VMAX Alt", grade: "PSA 10", franchise: "Pokémon" },
-  ];
-  return { ...pool[last], fromFallback: true };
+  imageUrl: string;
+  rarity?: string;
+  type?: string;
+  setName?: string;
 }
 
 const TINTS = ["#38284A", "#22314A", "#1E3A38", "#46341E", "#1F3D2C"];
@@ -202,7 +157,7 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
 
   async function syncWallet() {
     setSyncing(true);
-    const { cards: onchain, fromFallback } = await fetchOnchainCards("0xMOCK");
+    const { cards: onchain, fromFallback } = await fetchOnchainCards();
     setCards((prev) => [...onchain, ...prev.filter((c) => c.origin === "physical")]);
     setSyncing(false);
     setSynced(true);
@@ -273,7 +228,7 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
             </div>
             <span className="w-px h-4 bg-glassline" aria-hidden />
             <span className="text-[12px] text-creamdim font-semibold px-1">
-              {syncing ? "Syncing wallet…" : synced ? `${visible.length} cards` : ""}
+              {syncing ? "Loading…" : synced ? `${visible.length} cards` : ""}
             </span>
             <button
               onClick={syncWallet}
@@ -299,7 +254,7 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
           {syncError && (
             <div className="flex items-center gap-2 text-[12px] font-semibold text-creamdim bg-glass/70 backdrop-blur-md border border-glassline rounded-full px-3.5 py-1.5">
               <Warning size={13} weight="fill" className="shrink-0 text-down" aria-hidden />
-              <span>Showing sample cards. Live sync unavailable.</span>
+              <span>Couldn&apos;t reach Renaiss. Your registered cards are still shown.</span>
               <button
                 onClick={syncWallet}
                 disabled={syncing}
@@ -382,13 +337,16 @@ function RegisterModal({
   onClose: () => void;
 }) {
   const [mode, setMode] = useState<CardOrigin>("onchain");
-  const [cert, setCert] = useState("");
   const [name, setName] = useState("");
   const [grade, setGrade] = useState("");
-  const [franchise, setFranchise] = useState("Pokémon");
+  const [franchise, setFranchise] = useState("One Piece");
   const [imageUrl, setImageUrl] = useState("");
-  const [looking, setLooking] = useState(false);
-  const [lookupFallback, setLookupFallback] = useState(false);
+  // 원피스 카드 이름 검색 (apitcg 프록시 /api/opcard)
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<OpSearchCard[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const [pickedId, setPickedId] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEscapeToClose(onClose);
@@ -396,16 +354,27 @@ function RegisterModal({
     panelRef.current?.focus();
   }, []);
 
-  async function handleLookup() {
-    if (!cert.trim()) return;
-    setLooking(true);
-    const found = await lookupCert(cert.trim());
-    setName(found.name);
-    setGrade(found.grade);
-    setFranchise(found.franchise);
-    if (found.imageUrl) setImageUrl(found.imageUrl);
-    setLookupFallback(found.fromFallback);
-    setLooking(false);
+  async function handleSearch() {
+    if (!query.trim()) return;
+    setSearching(true);
+    setSearched(false);
+    try {
+      const res = await fetch(`/api/opcard?name=${encodeURIComponent(query.trim())}`);
+      const d = (await res.json()) as { cards?: OpSearchCard[] };
+      setResults(res.ok && d.cards ? d.cards : []);
+    } catch {
+      setResults([]);
+    }
+    setSearching(false);
+    setSearched(true);
+  }
+
+  /** 검색 결과 카드 선택 → 이름·이미지·프랜차이즈 자동 채움 (등급만 수동) */
+  function pickCard(c: OpSearchCard) {
+    setPickedId(c.id);
+    setName(c.name);
+    setImageUrl(c.imageUrl);
+    setFranchise("One Piece");
   }
 
   const inputCls =
@@ -424,47 +393,73 @@ function RegisterModal({
       >
         <h3 className="text-cream font-bold text-lg">Add a card</h3>
         <div className="flex gap-2">
-          <Chip active={mode === "onchain"} onClick={() => setMode("onchain")}>From wallet</Chip>
+          <Chip active={mode === "onchain"} onClick={() => setMode("onchain")}>From Renaiss</Chip>
           <Chip active={mode === "physical"} onClick={() => setMode("physical")}>Physical card</Chip>
         </div>
 
         {mode === "onchain" ? (
           <div className="flex flex-col gap-3">
             <p className="text-[12px] text-creamdim leading-relaxed">
-              Cards in your Renaiss wallet are loaded automatically. Hit sync to refresh from chain.
+              Cards you showcase on your Renaiss profile load here automatically. Refresh to pull the latest.
             </p>
             <button
               onClick={() => { onSync(); onClose(); }}
               className="inline-flex items-center justify-center gap-1.5 bg-amber text-inkdark font-bold rounded-xl px-5 py-2.5 text-sm hover:brightness-110 transition"
             >
               <ArrowsClockwise size={14} weight="bold" aria-hidden />
-              Sync from wallet
+              Refresh from Renaiss
             </button>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
+            {/* 원피스 카드 이름 검색 — apitcg에서 이미지째 가져옴 */}
             <div className="flex gap-2">
               <input
-                value={cert}
-                onChange={(e) => setCert(e.target.value)}
-                placeholder="PSA cert number"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                placeholder="Card name or code (e.g. OP01-016)"
                 className={inputCls}
               />
               <button
-                onClick={handleLookup}
-                disabled={looking || !cert.trim()}
+                onClick={handleSearch}
+                disabled={searching || !query.trim()}
                 className="shrink-0 text-[12px] font-bold px-3.5 rounded-xl border border-glassline text-creamdim hover:text-cream transition-colors disabled:opacity-50"
               >
-                {looking ? "…" : "Look up"}
+                {searching ? "…" : "Search"}
               </button>
             </div>
-            {lookupFallback && (
+
+            {/* 검색 결과 그리드 — 카드 클릭 시 이름·이미지 자동 채움 */}
+            {results.length > 0 && (
+              <div className="grid grid-cols-4 gap-2 max-h-[188px] overflow-y-auto pr-1">
+                {results.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => pickCard(c)}
+                    title={`${c.name}${c.setName ? ` · ${c.setName}` : ""}`}
+                    className={`rounded-md overflow-hidden border transition ${
+                      pickedId === c.id ? "border-amber ring-2 ring-amber" : "border-glassline hover:border-cream/50"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={c.imageUrl} alt={c.name} draggable={false} className="w-full aspect-[5/7] object-cover" />
+                    {/* 카드 코드 — 같은 캐릭터 판본이 수십 장일 때 유일한 구분자 */}
+                    <span className="block text-center text-[9px] font-bold text-creamdim py-0.5 truncate">
+                      {c.id}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {searched && !searching && results.length === 0 && (
               <p className="flex items-start gap-1.5 text-[11px] text-creamdim leading-relaxed -mt-1">
                 <Warning size={13} weight="fill" className="shrink-0 mt-px text-down" aria-hidden />
-                Couldn&apos;t verify this cert right now, so an example was filled in. Double-check
-                the details below.
+                No cards found. You can still fill in the details manually below.
               </p>
             )}
+
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Card name" className={inputCls} />
             <div className="flex gap-2">
               <input value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="Grade (PSA 10)" className={inputCls} />
@@ -473,7 +468,7 @@ function RegisterModal({
             <input
               value={imageUrl}
               onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="Card image URL (optional)"
+              placeholder="Card image URL (auto-filled when you pick a card)"
               className={inputCls}
             />
             <button
@@ -483,7 +478,6 @@ function RegisterModal({
                   name: name.trim(),
                   grade: grade.trim() || "Raw",
                   franchise: franchise.trim(),
-                  certNumber: cert.trim() || undefined,
                   imageUrl: imageUrl.trim() || undefined,
                 })
               }

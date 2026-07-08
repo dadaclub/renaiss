@@ -67,19 +67,39 @@ export interface RenaissSbt {
   imageUrl: string;
 }
 
+/** 카드(컬렉터블) 쇼케이스 — 유저가 공개 프로필에 직접 올린 카드. 필드는 방어적으로(응답 스키마 확정 전) */
+export interface RenaissFavoritedCollectible {
+  id?: number | string;
+  tokenId?: string;
+  title?: string;
+  name?: string;
+  setName?: string;
+  grade?: string;
+  gradingCompany?: string;
+  fmvPriceInUSD?: string | number;
+  imageUrl?: string;
+  frontImageUrl?: string;
+  frontWithoutStandImageUrl?: string;
+}
+
 export interface RenaissUserProfile {
   id: string;
   username: string;
   avatarUrl: string;
   favoritedSBTs: RenaissSbt[];
+  favoritedCollectibles: RenaissFavoritedCollectible[];
 }
 
-/** 공개 유저 프로필 조회 (GET /v0/users/{id}) — SBT 뱃지 + 프로필 정보 반환. id = username 또는 uuid */
+/** 공개 유저 프로필 조회 (GET /v0/users/{id}) — SBT 뱃지 + 쇼케이스 카드 + 프로필. id = username 또는 uuid */
 export async function getUserProfile(id: string): Promise<RenaissUserProfile> {
   const res = await fetch(`${BASE}/v0/users/${encodeURIComponent(id)}`, {
     next: { revalidate: 300 },
   });
   if (!res.ok) throw new Error(`Renaiss API ${res.status}`);
   const data = (await res.json()) as RenaissUserProfile;
-  return { ...data, favoritedSBTs: data.favoritedSBTs ?? [] };
+  return {
+    ...data,
+    favoritedSBTs: data.favoritedSBTs ?? [],
+    favoritedCollectibles: data.favoritedCollectibles ?? [],
+  };
 }
