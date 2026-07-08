@@ -12,6 +12,7 @@ import {
   Warning,
 } from "@phosphor-icons/react";
 import { ROOM_IMG } from "@/lib/spots";
+import { APITCG_GAMES } from "@/lib/api/apitcgGames";
 import { Chip } from "@/components/ui/Chip";
 import { fmtUsd } from "@/lib/mockCards";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
@@ -320,9 +321,10 @@ function RegisterModal({
   const [mode, setMode] = useState<CardOrigin>("onchain");
   const [name, setName] = useState("");
   const [grade, setGrade] = useState("");
-  const [franchise, setFranchise] = useState("One Piece");
+  const [franchise, setFranchise] = useState(APITCG_GAMES[0].franchise);
   const [imageUrl, setImageUrl] = useState("");
-  // 원피스 카드 이름 검색 (apitcg 프록시 /api/opcard)
+  // TCG 카드 검색 (apitcg 프록시 /api/opcard) — 게임 선택 후 이름/코드로 검색
+  const [game, setGame] = useState(APITCG_GAMES[0]);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<OpSearchCard[]>([]);
   const [searching, setSearching] = useState(false);
@@ -340,7 +342,9 @@ function RegisterModal({
     setSearching(true);
     setSearched(false);
     try {
-      const res = await fetch(`/api/opcard?name=${encodeURIComponent(query.trim())}`);
+      const res = await fetch(
+        `/api/opcard?name=${encodeURIComponent(query.trim())}&game=${encodeURIComponent(game.id)}`
+      );
       const d = (await res.json()) as { cards?: OpSearchCard[] };
       setResults(res.ok && d.cards ? d.cards : []);
     } catch {
@@ -350,12 +354,21 @@ function RegisterModal({
     setSearched(true);
   }
 
+  /** 게임 전환 — 이전 게임의 검색 결과/선택을 비우고 프랜차이즈 기본값 갱신 */
+  function switchGame(g: (typeof APITCG_GAMES)[number]) {
+    setGame(g);
+    setResults([]);
+    setSearched(false);
+    setPickedId(null);
+    setFranchise(g.franchise);
+  }
+
   /** 검색 결과 카드 선택 → 이름·이미지·프랜차이즈 자동 채움 (등급만 수동) */
   function pickCard(c: OpSearchCard) {
     setPickedId(c.id);
     setName(c.name);
     setImageUrl(c.imageUrl);
-    setFranchise("One Piece");
+    setFranchise(game.franchise);
   }
 
   const inputCls =
@@ -393,13 +406,21 @@ function RegisterModal({
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {/* 원피스 카드 이름 검색 — apitcg에서 이미지째 가져옴 */}
+            {/* 게임 선택 — apitcg 지원 TCG (새 게임은 lib/api/apitcgGames.ts에 한 줄 추가) */}
+            <div className="flex gap-1.5 flex-wrap">
+              {APITCG_GAMES.map((g) => (
+                <Chip key={g.id} active={game.id === g.id} onClick={() => switchGame(g)}>
+                  {g.label}
+                </Chip>
+              ))}
+            </div>
+            {/* 카드 검색 — apitcg에서 이미지째 가져옴 */}
             <div className="flex gap-2">
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                placeholder="Card name or code (e.g. OP01-016)"
+                placeholder={game.codeSearch ? "Card name or code (e.g. OP01-016)" : "Card name"}
                 className={inputCls}
               />
               <button

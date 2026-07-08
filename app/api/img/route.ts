@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { APITCG_GAMES } from "@/lib/api/apitcgGames";
 
 /**
  * 이미지 프록시 — 외부 이미지(원피스 공식 카드 이미지 등)를 우리 도메인으로 다시 서빙.
@@ -7,12 +8,8 @@ import { NextResponse } from "next/server";
  *       서버가 받아 same-origin으로 내려주면 브라우저가 정상 렌더.
  * 보안: 오픈 프록시/SSRF 방지 위해 허용 호스트만 통과. (?url= 로 원본 주소 전달)
  */
-const ALLOWED_HOSTS = new Set([
-  "en.onepiece-cardgame.com",
-  "asia-en.onepiece-cardgame.com",
-  "www.onepiece-cardgame.com", // 일본판 — JP 전용 프로모 판본이 여기에만 있음
-  "onepiece-cardgame.com",
-]);
+// 허용 호스트 = 지원 게임들의 카드 이미지 호스트 (게임 추가 시 apitcgGames.ts에서 자동 반영)
+const ALLOWED_HOSTS = new Set(APITCG_GAMES.flatMap((g) => g.imageHosts));
 
 export const revalidate = 86400; // 카드 이미지는 사실상 불변
 

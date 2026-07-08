@@ -1,10 +1,13 @@
 /**
- * apitcg.com — One Piece 카드 조회 래퍼 (read-only, 서버 전용).
- * 카드명으로 검색해 공식 카드 이미지 URL을 반환. ⚠️ 시세(price)는 제공하지 않음 — 이미지·카드정보만.
- * 키: APITCG_API_KEY (.env.local / Vercel 환경변수). 브라우저 노출 금지 → 반드시 서버(API 라우트)에서만 호출.
- * 스키마 출처: GET https://www.apitcg.com/api/one-piece/cards?name= (헤더 x-api-key).
+ * apitcg.com — TCG 카드 조회 래퍼 (read-only, 서버 전용).
+ * 게임(원피스/포켓몬/디지몬 등 — lib/api/apitcgGames.ts)별로 카드를 검색해 이미지 URL을 반환.
+ * ⚠️ 시세(price)는 제공하지 않음 — 이미지·카드정보만.
+ * 키: APITCG_API_KEY (.env.local / Vercel 환경변수, 전 게임 공용). 브라우저 노출 금지 → 반드시 서버(API 라우트)에서만 호출.
+ * 스키마 출처: GET https://www.apitcg.com/api/<game>/cards?name= (헤더 x-api-key).
  */
-const BASE = "https://www.apitcg.com/api/one-piece/cards";
+import type { ApiTcgGame } from "./apitcgGames";
+
+const base = (gameId: string) => `https://www.apitcg.com/api/${gameId}/cards`;
 
 interface ApiTcgCardRaw {
   id: string;
@@ -70,17 +73,19 @@ export function toCardCode(q: string): string | null {
   return null;
 }
 
-async function fetchCards(param: "name" | "id", value: string, limit: number, key: string): Promise<OnePieceCard[]> {
-  const res = await fetch(`${BASE}?${param}=${encodeURIComponent(value)}&limit=${limit}`, {
+async function fetchCards(
+  gameId: string,
+  param: "name" | "id",
+  value: string,
+  limit: number,
+  key: string
+): Promise<OnePieceCard[]> {
+  const res = await fetch(`${base(gameId)}?${param}=${encodeURIComponent(value)}&limit=${limit}`, {
     headers: { "x-api-key": key },
     next: { revalidate: 3600 }, // 카드 카탈로그는 거의 불변
   });
   if (!res.ok) throw new Error(`apitcg API ${res.status}`);
   return mapCards((await res.json()) as { data?: ApiTcgCardRaw[] });
-}
-
-async function fetchByName(name: string, limit: number, key: string): Promise<OnePieceCard[]> {
-  return fetchCards("name", name, limit, key);
 }
 
 /**
@@ -162,39 +167,42 @@ async function withParallelArts(cards: OnePieceCard[]): Promise<OnePieceCard[]> 
 }
 
 /**
- * 원피스 카드 검색 — 카드 코드 우선, 이름 폴백.
- * 1) 검색어가 카드 코드 형태(OP01-016, ST03-017, P-061 등)면 ?id= 검색 —
+ * TCG 카드 검색 — 게임별 apitcg 조회. 원피스는 카드 코드 우선, 나머지는 이름 검색.
+ * 1) [원피스 전용] 검색어가 카드 코드 형태(OP01-016, ST03-017, P-061 등)면 ?id= 검색 —
  *    그 코드의 모든 판본(기본판/_p1 패러렐/스페셜)이 각각 이미지째 반환됨. 가장 정확.
- * 2) 이름 검색: apitcg 매칭이 띄어쓰기/하이픈에 예민해서("Love-Love Mellow"는
+ * 2) 이름 검색(전 게임 공통): apitcg 매칭이 띄어쓰기/하이픈에 예민해서("Love-Love Mellow"는
  *    "love love mellow"로 안 잡힘) 0건이면 가장 긴 단어로 재시도.
- *    결과가 적으면 공식 사이트의 패러렐 아트(_p1/_p2)도 HEAD 프로빙으로 추가.
+ *    [원피스 전용] 결과가 적으면 공식 사이트의 패러렐 아트(_p1/_p2)도 HEAD 프로빙으로 추가.
  */
-export async function searchOnePieceCards(name: string, limit = 24): Promise<OnePieceCard[]> {
+export async function searchTcgCards(game: ApiTcgGame, query: string, limit = 24): Promise<OnePieceCard[]> {
   const key = process.env.APITCG_API_KEY;
   if (!key) throw new Error("APITCG_API_KEY not configured");
 
-  // 1) 카드 코드 검색 — apitcg가 아는 판본 + 공식 사이트(영/일)에만 있는 판본까지 프로빙.
+  // 1) 카드 코드 검색 (원피스만 — 다른 게임엔 통일된 카드 코드 체계가 없음)
+  //    apitcg가 아는 판본 + 공식 사이트(영/일)에만 있는 판본까지 프로빙.
   //    (예: OP08-106_p5 프로모는 일본 사이트에만 있고 apitcg 미등록)
-  const code = toCardCode(name);
-  if (code) {
-    const byCode = await fetchCards("id", code, limit, key);
-    if (byCode.length > 0) {
-      const extra = await probeMissingParallels(code, byCode);
-      return dedupeByImage([...byCode, ...extra]);
+  if (game.codeSearch) {
+    const code = toCardCode(query);
+    if (code) {
+      const byCode = await fetchCards(game.id, "id", code, limit, key);
+      if (byCode.length > 0) {
+        const extra = await probeMissingParallels(code, byCode);
+        return dedupeByImage([...byCode, ...extra]);
+      }
     }
   }
 
   // 2) 이름 검색
-  let cards = await fetchByName(name, limit, key);
+  let cards = await fetchCards(game.id, "name", query, limit, key);
   if (cards.length === 0) {
     // 폴백: 3글자 이상 단어 중 가장 긴 것으로 재검색
-    const longest = name
+    const longest = query
       .split(/[\s-]+/)
       .filter((w) => w.length >= 3)
       .sort((a, b) => b.length - a.length)[0];
-    if (longest && longest.toLowerCase() !== name.toLowerCase()) {
-      cards = await fetchByName(longest, limit, key);
+    if (longest && longest.toLowerCase() !== query.toLowerCase()) {
+      cards = await fetchCards(game.id, "name", longest, limit, key);
     }
   }
-  return dedupeByImage(await withParallelArts(cards));
+  return dedupeByImage(game.codeSearch ? await withParallelArts(cards) : cards);
 }
