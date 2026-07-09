@@ -26,14 +26,17 @@ export interface Spot {
    *  기울어진 작은 오브젝트(과자봉지 등)에서 사각형 히트박스가 과하게 넓어지는 걸 막음.
    *  꼭짓점은 방 이미지 대비 %(area와 같은 좌표계). */
   clip?: Corners;
+  /** 호버 pop 확대 배율 (기본 1.05 = 5%). 큰 평면 오브젝트(모니터·캐비닛)는 5%면 '가운데볼록'
+   *  처럼 과해 보여 1.03(3%) 등으로 낮춘다. */
+  popScale?: number;
 }
 
 // 핫스팟 좌표 — room_v5(16:9) 기준 ?edit 편집기로 측정. 기울어진 오브젝트도 클릭영역은
 // 코너 4점의 바운딩 박스(축정렬 사각형)로 area를 잡았다. (figure만 아직 미측정 — placeholder)
 // 클릭 시 새 화면(ObjectScreen)이 뜨므로 좌표는 클릭 영역용.
 export const SPOTS: Spot[] = [
-  { id: "cabinet",  label: "Card storage", area: { left: 3.9,  top: 4.8,  width: 36.1, height: 62.1 }, zoom: { cx: 0.14, cy: 0.29, scale: 2.2 } },
-  { id: "computer", label: "Computer",     area: { left: 56,   top: 32.8, width: 15.7, height: 18.4 }, zoom: { cx: 0.58, cy: 0.30, scale: 2.4 } },
+  { id: "cabinet",  label: "Card storage", area: { left: 3.9,  top: 4.8,  width: 36.1, height: 62.1 }, zoom: { cx: 0.14, cy: 0.29, scale: 2.2 }, popScale: 1.03 },
+  { id: "computer", label: "Computer",     area: { left: 56,   top: 32.8, width: 15.7, height: 18.4 }, zoom: { cx: 0.58, cy: 0.30, scale: 2.4 }, popScale: 1.03 },
   // 컴퓨터 화면 quad(room_v5 측정) — 나중에 모니터에 사진 얹을 때 아래 overlay 주석을 살리고 src만 교체.
   // overlay: { src: "/picture_v1.jpg", corners: { tl: [56, 33.2], tr: [71.7, 32.8], br: [71.6, 51.2], bl: [56.2, 51.2] } }
   // 액자: 클릭하면 PhotoScreen으로 확대(사진 경로는 PhotoScreen.tsx의 PHOTO_SRC).

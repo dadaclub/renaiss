@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { SPOTS, Spot, SpotId, ROOM_IMG_DARK, ROOM_IMG_BRIGHT } from "@/lib/spots";
 import { getRoom, HOME_ROOM_ID } from "@/lib/rooms";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
+import { useAvatar } from "@/lib/useAvatar";
 import { BackgroundMusic } from "./BackgroundMusic";
 import { ClickSound } from "./ClickSound";
 import { Hotspot } from "./Hotspot";
@@ -15,6 +16,25 @@ import { RoomProvider } from "./RoomContext";
 import { SnackHoverSound } from "./SnackHoverSound";
 import { SnackCrumble } from "./SnackCrumble";
 import { ArrowLeft } from "@phosphor-icons/react";
+
+/** 프로필 배지 아바타 — 유저 UUID로 Renaiss 프로필의 avatarUrl을 동적 조회(useAvatar).
+ *  이미지가 없거나 로드 실패(예: 죽은 URL)하면 닉네임 첫 글자로 대체.
+ *  (방마다 유저가 다르므로 Scene에서 key={room.id}로 감싸 broken 상태를 리셋한다.) */
+function RoomAvatar({ name, userId }: { name: string; userId?: string }) {
+  const [broken, setBroken] = useState(false);
+  const url = useAvatar(userId);
+  const initial = name.trim().charAt(0).toUpperCase() || "?";
+  return (
+    <span className="w-5 h-5 sm:w-7 sm:h-7 grid place-items-center rounded-full overflow-hidden bg-inkdark border border-amber/40 shrink-0">
+      {url && !broken ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={url} alt="" draggable={false} onError={() => setBroken(true)} className="w-full h-full object-cover" />
+      ) : (
+        <span className="text-amber font-bold text-[9px] sm:text-[11px] leading-none">{initial}</span>
+      )}
+    </span>
+  );
+}
 
 /**
  * 방 씬.
@@ -223,12 +243,12 @@ export function Scene() {
               aria-hidden
               className="absolute inset-0 bg-[radial-gradient(ellipse_70%_58%_at_50%_58%,theme(colors.bg/0%),theme(colors.bg/55%)_62%,theme(colors.bg/95%)),linear-gradient(to_bottom,theme(colors.bg/95%),theme(colors.bg/0%)_22%,theme(colors.bg/0%)_72%,theme(colors.bg/95%))]"
             />
-            <span className="absolute left-6 bottom-6 sm:left-9 sm:bottom-9 flex flex-col items-start">
-              <span className="text-cream font-serif text-4xl sm:text-5xl leading-none">CardScene</span>
-              <span className="mt-2.5 text-creamdim text-sm">
+            <span className="absolute left-4 bottom-4 sm:left-9 sm:bottom-9 flex flex-col items-start">
+              <span className="text-cream font-serif text-2xl sm:text-5xl leading-none">CardScene</span>
+              <span className="mt-1.5 sm:mt-2.5 text-creamdim text-xs sm:text-sm">
                 A room for your TCG collection.
               </span>
-              <span className="mt-4 text-amber text-[11px] font-semibold uppercase tracking-[0.22em] animate-tap-hint motion-reduce:animate-none">
+              <span className="mt-2 sm:mt-4 text-amber text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.2em] sm:tracking-[0.22em] animate-tap-hint motion-reduce:animate-none">
                 Tap anywhere to step inside
               </span>
             </span>
@@ -237,31 +257,28 @@ export function Scene() {
 
         {/* 방문 배너 — 방 이미지 상단 중앙 */}
         {isVisiting && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-glass border border-glassline text-cream text-xs font-bold px-4 py-2.5 rounded-full backdrop-blur-md">
+          <div className="absolute top-2 sm:top-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 sm:gap-3 bg-glass border border-glassline text-cream text-[10px] sm:text-xs font-bold px-2.5 sm:px-4 py-1.5 sm:py-2.5 rounded-full backdrop-blur-md whitespace-nowrap">
             <span>
               Visiting <span className="text-amber">{room.ownerName}</span>&apos;s room
             </span>
-            <span className="w-px h-4 bg-glassline" aria-hidden />
+            <span className="w-px h-3.5 sm:h-4 bg-glassline" aria-hidden />
             <button
               onClick={() => visitRoom(HOME_ROOM_ID)}
+              aria-label="Back to my room"
               className="inline-flex items-center gap-1 hover:text-amber transition-colors"
             >
-              <ArrowLeft size={13} weight="bold" aria-hidden />
-              Back to my room
+              <ArrowLeft className="w-3 h-3 sm:w-3.5 sm:h-3.5" weight="bold" aria-hidden />
+              <span className="hidden sm:inline">Back to my room</span>
+              <span className="sm:hidden">Back</span>
             </button>
           </div>
         )}
 
         {/* 프로필 배지 — 방 이미지 우하단, 스피커 버튼 옆. 아바타 + 닉네임만. */}
         {objectsReady && !active && !edit && (
-          <div className="absolute bottom-5 right-16 z-30 flex items-center gap-2 h-9 pl-1 pr-3 rounded-full bg-glass border border-glassline backdrop-blur-md">
-            <span className="w-7 h-7 rounded-full overflow-hidden bg-inkdark border border-amber/40 shrink-0">
-              {room.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={room.avatarUrl} alt="" className="w-full h-full object-cover" draggable={false} />
-              ) : null}
-            </span>
-            <span className="text-cream text-xs font-bold">{room.ownerName}</span>
+          <div className="absolute bottom-3 right-12 sm:bottom-5 sm:right-16 z-30 flex items-center gap-1.5 sm:gap-2 h-7 sm:h-9 pl-0.5 pr-2 sm:pl-1 sm:pr-3 rounded-full bg-glass border border-glassline backdrop-blur-md">
+            <RoomAvatar key={room.id} name={room.ownerName} userId={room.renaissUser} />
+            <span className="text-cream text-[10px] sm:text-xs font-bold">{room.ownerName}</span>
           </div>
         )}
 
