@@ -49,7 +49,7 @@ export const SPOTS: Spot[] = [
   { id: "figure",   label: "Rene on X",    area: { left: 73.5, top: 42.5, width: 3.8,  height: 12.7 }, zoom: { cx: 0.88, cy: 0.30, scale: 2.5 }, href: RENE_TWITTER_URL },
 ];
 
-export const IMG_ASPECT = 1280 / 714; // room_v5.jpg (16:9 가로형)
+export const IMG_ASPECT = 1280 / 714; // room_dark_v1 / room_bright_v1 (16:9 가로형)
 
 /**
  * 로그인 전, 어둠 속에서 켜진 핸드폰 화면 불빛의 네 꼭짓점 (방 이미지 대비 %).
