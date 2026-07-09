@@ -146,3 +146,16 @@ button:enabled,
 .animate-reward-label {
   animation: reward-label-in 0.4s ease-out 0.5s both;
 }
+
+/* 시작 화면 — 카드가 위에서 아래로 계속 떨어지는 비 연출. top을 직접 움직여서(부모 기준 %) 컨테이너 크기와 무관하게 동작 */
+@keyframes card-fall {
+  0% { top: -18%; opacity: 0; transform: rotate(0deg); }
+  8% { opacity: 0.85; }
+  92% { opacity: 0.85; }
+  100% { top: 112%; opacity: 0; transform: rotate(var(--card-spin, 360deg)); }
+}
+.animate-card-fall {
+  animation-name: card-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}

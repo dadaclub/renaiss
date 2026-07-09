@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fredoka, Noto_Serif_KR, Gochi_Hand } from "next/font/google";
+import { Fredoka, Noto_Serif_KR, Gochi_Hand, Press_Start_2P } from "next/font/google";
 import "./globals.css";
 
 /* 폰트는 next/font로 셀프호스팅 — 렌더 블로킹/FOIT 없이 로드 (globals.css @import 대체).
@@ -22,6 +22,13 @@ const gochiHand = Gochi_Hand({
   variable: "--font-gochi-hand",
   display: "swap",
 });
+// 컴퓨터 미니게임의 픽셀(8비트) 연출용 — GAME START/GAME OVER 등
+const pressStart2p = Press_Start_2P({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-press-start",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "CardScene",
@@ -30,7 +37,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${fredoka.variable} ${notoSerifKr.variable} ${gochiHand.variable}`}>
+    <html
+      lang="en"
+      className={`${fredoka.variable} ${notoSerifKr.variable} ${gochiHand.variable} ${pressStart2p.variable}`}
+    >
       <body>{children}</body>
     </html>
   );
