@@ -53,7 +53,9 @@ export function Scene() {
   const room = getRoom(roomId);
   const isVisiting = roomId !== HOME_ROOM_ID;
   // 방문 중엔 스플래시/로그인 없이 바로 밝은 방 + 오브젝트 열람(읽기 전용)
-  const roomBright = entered || isVisiting;
+  // 방이 밝아지는 건 로그인 후(loggedIn) — 로그인 전(entered만)엔 깜깜한 방 + 폰만 울림.
+  // 로그인 취소 시에도 밝아지지 않고 폰 울리는 어두운 방으로 남는다.
+  const roomBright = loggedIn || isVisiting;
   const objectsReady = loggedIn || isVisiting;
 
   // URL ?room= 를 상태에 반영 (마운트 + 뒤로가기)
