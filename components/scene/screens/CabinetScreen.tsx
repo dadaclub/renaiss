@@ -399,8 +399,9 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
           shown ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
         }`}
       >
-        {/* 상단 — 떠 있는 컨트롤 (타이틀 없음). 좁은 화면에선 고정 Back 버튼 아래로 내림 */}
-        <div className="shrink-0 flex flex-col items-center gap-3 pt-[72px] lg:pt-6 pb-2 px-6">
+        {/* 상단 — 떠 있는 컨트롤 (타이틀 없음). 항상 고정 Back·Gallery 버튼 아래 줄로 내려
+            둘이 같은 라인에 겹치지 않게 분리 (데스크톱 포함) */}
+        <div className="shrink-0 flex flex-col items-center gap-3 pt-[72px] pb-2 px-6">
           <div className="flex items-center gap-2 flex-wrap justify-center bg-glass/70 backdrop-blur-md border border-glassline rounded-full px-3 py-2">
             {/* 정렬 — 2개 토글 칩. 날짜(Newest↑⇄Oldest↓), 가격(high↑⇄low↓). 탭하면 방향 반전 */}
             <div aria-label="Sort cards" className="flex items-center gap-1.5">
@@ -1120,13 +1121,13 @@ function Shelves({
   return (
     <div ref={rootRef} className="w-full max-w-[1120px] mx-auto flex flex-col gap-4">
       {/* 한 단 카드 수 = cols(컨테이너 폭 기준 자동, 가로 넘침 없음).
-          카드는 고정 폭(cardW) + 가운데 정렬. 선반 턱은 항상 풀 너비(고정) —
-          단마다 선반 길이가 달라 보이던 문제를 없애고, 덜 찬 단은 카드만 가운데로 모인다. */}
+          카드는 고정 폭(cardW) + 왼쪽 정렬. 선반 턱은 항상 풀 너비(고정) —
+          꽉 찬 단은 폭에 딱 맞고, 덜 찬 단은 왼쪽부터 채우고 오른쪽이 빈다. */}
       <div className="flex flex-col gap-4">
         {rows.map((row, r) => (
           <div key={r}>
-            {/* 카드들 — 선반 턱 위에 정면으로, 가운데 정렬. 고정 폭이라 카드 크기는 단마다 동일 */}
-            <div className="flex items-end justify-center gap-3 px-2 mb-1.5">
+            {/* 카드들 — 선반 턱 위에 정면으로, 왼쪽부터. 고정 폭이라 카드 크기는 단마다 동일 */}
+            <div className="flex items-end justify-start gap-3 px-2 mb-1.5">
                 {row.map((card, i) => (
                   <div
                     key={card === "add" ? "add" : card ? card.id : `s${i}`}
