@@ -7,11 +7,15 @@ export function useHoverSound(src: string, hovering: boolean, volume = 0.5) {
 
   useEffect(() => {
     if (!audioRef.current) {
-      audioRef.current = new Audio(src);
+      audioRef.current = new Audio();
       audioRef.current.loop = true;
-      audioRef.current.volume = volume;
     }
     const audio = audioRef.current;
+    // src가 바뀌면(또는 HMR로 이전 인스턴스가 남아있으면) 새 파일로 갈아끼운다
+    if (!audio.src.endsWith(src)) {
+      audio.src = src;
+    }
+    audio.volume = volume;
     if (hovering) {
       audio.currentTime = 0;
       audio.play().catch(() => {});

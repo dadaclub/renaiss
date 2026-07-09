@@ -6,6 +6,6 @@ import { useHoverSound } from "@/lib/useHoverSound";
  * 위치는 spots.ts의 snack 스팟(Hotspot)이 담당하고, 여기선 Scene이 넘겨준 호버 상태로 소리만 낸다.
  */
 export function SnackHoverSound({ active }: { active: boolean }) {
-  useHoverSound("/sounds/plastic-bag-crinkle.mp3", active);
+  useHoverSound("/sounds/plastic-bag-texture.mp3", active);
   return null;
 }

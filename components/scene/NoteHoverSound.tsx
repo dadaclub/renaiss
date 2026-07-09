@@ -1,0 +1,11 @@
+"use client";
+import { useHoverSound } from "@/lib/useHoverSound";
+
+/**
+ * 방명록(노트) 호버 사운드 — note 스팟에 마우스를 올리는 동안 종이 부스럭거리는 소리가 반복 재생된다.
+ * 위치는 spots.ts의 note 스팟(Hotspot)이 담당하고, 여기선 Scene이 넘겨준 호버 상태로 소리만 낸다.
+ */
+export function NoteHoverSound({ active }: { active: boolean }) {
+  useHoverSound("/sounds/writing-on-paper.mp3", active);
+  return null;
+}

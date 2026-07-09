@@ -159,3 +159,12 @@ button:enabled,
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }
+
+/* 시작 화면 — 캐릭터가 왼쪽에서 오른쪽으로 계속 달려가다 끝에 닿으면 다시 왼쪽부터 반복 */
+@keyframes run-across {
+  0% { left: -14%; }
+  100% { left: 112%; }
+}
+.animate-run-across {
+  animation: run-across 4.2s linear infinite;
+}
