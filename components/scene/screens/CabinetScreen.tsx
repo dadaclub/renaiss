@@ -8,6 +8,7 @@ import {
   CaretLeft,
   CaretRight,
   CaretUp,
+  MonitorPlay,
   PencilSimple,
   Plus,
   Trash,
@@ -22,6 +23,7 @@ import { fmtUsd } from "@/lib/mockCards";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 import { supabase } from "@/lib/supabase";
 import { useRoom } from "../RoomContext";
+import { CabinetGallery } from "./CabinetGallery";
 
 /**
  * 카드 진열장 화면.
@@ -235,6 +237,7 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
   const [modal, setModal] = useState<ModalState>(null);
   // 상세로 연 카드는 id로 추적 — 정렬(visible) 안에서 앞/뒤로 이동하기 위해 인덱스를 매번 새로 계산
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [gallery, setGallery] = useState(false); // 전시(갤러리) 모드 — 순수 감상용 풀스크린
 
   // 마운트 시 이 방 주인의 온체인 카드 + 등록 카드 자동 로드
   useEffect(() => {
@@ -379,6 +382,18 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
         Back to room
       </button>
 
+      {/* 전시(갤러리) 모드 진입 — 카드가 있을 때만. 순수 감상용 풀스크린 */}
+      {visible.length > 0 && (
+        <button
+          onClick={() => setGallery(true)}
+          // 모바일: 우상단. 데스크톱(넓은 16:9)에선 Back 버튼 옆으로 붙여 둘이 멀어지지 않게
+          className="fixed top-6 right-6 lg:right-auto lg:left-[152px] z-10 inline-flex items-center gap-1.5 bg-glass border border-glassline text-cream text-xs font-bold px-4 py-2.5 rounded-full backdrop-blur-md hover:border-amber hover:text-amber transition-colors"
+        >
+          <MonitorPlay size={14} weight="bold" aria-hidden />
+          Gallery
+        </button>
+      )}
+
       <div
         className={`relative h-full flex flex-col transition-all duration-500 ${
           shown ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
@@ -512,6 +527,9 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
           onClose={() => setSelectedId(null)}
         />
       )}
+
+      {/* 전시(갤러리) 모드 — 풀스크린 오버레이(z-[60]). 순수 감상용 */}
+      {gallery && <CabinetGallery cards={visible} onExit={() => setGallery(false)} />}
     </div>
   );
 }
@@ -1033,7 +1051,7 @@ function CardDetail({
  * 카드 클릭 콜백/데이터 계약은 그대로 유지할 것. */
 
 // 선반 한 단 카드 수 — 컨테이너 실제 폭을 재서 자동 결정 (모바일 좁으면 줄여 가로 넘침 방지)
-const SHELF_MAX = 5; // 데스크톱 한 단 최대
+const SHELF_MAX = 8; // 데스크톱 한 단 최대 (16:9 넓은 화면을 활용 — 모바일은 폭이 좁아 SHELF_MIN에 걸려 영향 없음)
 const SHELF_MIN = 3; // 모바일 한 단 최소
 const CARD_TARGET = 108; // 카드 목표 폭(px) — 이 폭 기준으로 몇 장 들어갈지 계산
 const SHELF_GAP = 12; // 카드 사이 간격(gap-3)
@@ -1088,7 +1106,7 @@ function Shelves({
   for (let i = 0; i < items.length; i += cols) rows.push(items.slice(i, i + cols));
 
   return (
-    <div ref={rootRef} className="w-full max-w-[720px] mx-auto flex flex-col gap-4">
+    <div ref={rootRef} className="w-full max-w-[1120px] mx-auto flex flex-col gap-4">
       {/* 한 단 카드 수 = cols(컨테이너 폭 기준 자동). 카드는 grid 칸을 꽉 채워 가로 넘침 없음.
           카드는 왼쪽부터 채움 (덜 찬 단도 좌측 정렬, 오른쪽 칸이 빔) */}
       <div className="flex flex-col gap-4">

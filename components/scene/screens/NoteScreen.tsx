@@ -149,7 +149,7 @@ export function NoteScreen({ onClose }: { onClose: () => void }) {
 
   return (
     <ScreenShell title="Guestbook" onClose={onClose}>
-      <div className="relative w-[min(92vw,560px)] h-[min(78vh,560px)] flex flex-col rounded-2xl border border-glassline bg-glass backdrop-blur-md shadow-2xl overflow-hidden p-6">
+      <div className="relative w-[min(92vw,760px)] h-[min(80vh,680px)] flex flex-col rounded-2xl border border-glassline bg-glass backdrop-blur-md shadow-2xl overflow-hidden p-6">
         <div className="shrink-0 flex items-center justify-between gap-3 mb-4">
           <span className="text-sm font-bold uppercase tracking-widest text-creamdim">Guestbook</span>
           {visiblePosts.length > 0 && (

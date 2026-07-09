@@ -387,7 +387,7 @@ export function ComputerScreen({ onClose }: { onClose: () => void }) {
       <div
         onClick={handleInput}
         style={{ backgroundImage: "url(/game/background.png)" }}
-        className="relative w-[min(92vw,640px)] aspect-[1456/1080] rounded-2xl border-2 border-glassline overflow-hidden bg-inkdark bg-cover bg-center cursor-pointer select-none"
+        className="relative w-[min(92vw,900px)] aspect-[1456/1080] rounded-2xl border-2 border-glassline overflow-hidden bg-inkdark bg-cover bg-center cursor-pointer select-none"
       >
         {/* 배경 구름 — 땅보다 느리게 흘러가는 패럴랙스, 끝까지 가면 반대편에서 다시 나타난다(루프) */}
         {CLOUDS.map((c, i) => (
