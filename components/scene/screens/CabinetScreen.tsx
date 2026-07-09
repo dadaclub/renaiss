@@ -1120,14 +1120,13 @@ function Shelves({
   return (
     <div ref={rootRef} className="w-full max-w-[1120px] mx-auto flex flex-col gap-4">
       {/* 한 단 카드 수 = cols(컨테이너 폭 기준 자동, 가로 넘침 없음).
-          카드는 고정 폭(cardW) + 가운데 정렬 → 덜 찬 단은 카드 수만큼만 선반이 길어진다. */}
+          카드는 고정 폭(cardW) + 가운데 정렬. 선반 턱은 항상 풀 너비(고정) —
+          단마다 선반 길이가 달라 보이던 문제를 없애고, 덜 찬 단은 카드만 가운데로 모인다. */}
       <div className="flex flex-col gap-4">
         {rows.map((row, r) => (
-          <div key={r} className="flex justify-center">
-            {/* 이 단 래퍼 — 폭이 카드 줄에 맞춰 줄어들어, 아래 선반 턱도 카드 수만큼만 길어짐 */}
-            <div className="flex flex-col">
-              {/* 카드들 — 선반 턱 위에 정면으로, 가운데. 고정 폭 flex라 카드 수만큼만 폭 차지 */}
-              <div className="flex items-end justify-center gap-3 px-2 mb-1.5">
+          <div key={r}>
+            {/* 카드들 — 선반 턱 위에 정면으로, 가운데 정렬. 고정 폭이라 카드 크기는 단마다 동일 */}
+            <div className="flex items-end justify-center gap-3 px-2 mb-1.5">
                 {row.map((card, i) => (
                   <div
                     key={card === "add" ? "add" : card ? card.id : `s${i}`}
@@ -1172,7 +1171,6 @@ function Shelves({
               <div className="h-[9px] rounded-b-[3px] bg-glass/70 border-x border-b border-glassline backdrop-blur-md shadow-[0_14px_32px_-6px_rgba(0,0,0,0.5)]" />
               {/* 선반 아래 은은한 벽 그림자 */}
               <div className="h-2 bg-[linear-gradient(180deg,theme(colors.cream/8%),theme(colors.bg/55%)_45%,transparent)]" />
-            </div>
           </div>
         ))}
       </div>
