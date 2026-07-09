@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { CheckCircle, LockSimple } from "@phosphor-icons/react";
-import { ROOM_IMG } from "@/lib/spots";
+import { ROOM_IMG_DARK } from "@/lib/spots";
 
 /**
  * 로그인 — 방 안 핸드폰에 줌인된 뒤 그 위로 뜬다.
@@ -37,11 +37,12 @@ export function LoginIntro({ onLogin, onCancel }: { onLogin: () => void; onCance
       aria-label="Log in with Renaiss"
       className="fixed inset-0 z-50 flex items-center justify-center"
     >
-      {/* 전체 뷰포트 방 배경 — 오브젝트 화면(ScreenShell)과 동일. 모바일에서 위아래 레터박스 검은 띠 방지 */}
+      {/* 전체 뷰포트 방 배경 — 아직 로그인 전이므로 어두운 방(dark). 승인되면 이 모달이 닫히며
+          뒤의 Scene이 roomBright(loggedIn) 크로스페이드로 dark→bright 서서히 밝아진다. */}
       <div aria-hidden className="absolute inset-0 overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={ROOM_IMG}
+          src={ROOM_IMG_DARK}
           alt=""
           draggable={false}
           className="absolute inset-0 w-full h-full object-cover select-none blur-[3px] scale-[1.03]"
