@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { SPOTS, Spot, SpotId, ROOM_IMG } from "@/lib/spots";
 import { getRoom, HOME_ROOM_ID } from "@/lib/rooms";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
@@ -38,6 +39,9 @@ export function Scene() {
   const [editSpotId, setEditSpotId] = useState<SpotId>("photo"); // 편집기에서 치수 재는 대상 스팟
   // 방 이동 연출 — 화면을 덮고 팩맨이 점 먹는 로딩을 보여준 뒤 새 방을 드러냄
   const [moving, setMoving] = useState(false);
+  // 오브젝트 화면을 body로 포탈하기 위한 마운트 게이트 (SSR 안전)
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const room = getRoom(roomId);
   const isVisiting = roomId !== HOME_ROOM_ID;
@@ -251,22 +255,25 @@ export function Scene() {
         {/* 배경음악/스피커 — 방 이미지 우하단 */}
         <BackgroundMusic active={objectsReady} />
 
-        {/* 오브젝트 화면/로그인 레이어.
-            데스크톱(sm+): transform(translateZ)으로 화면들의 fixed inset-0 을 이 레이어(=정사각형)
-              기준으로 가둬 프레임 overflow-hidden이 클립 → 방 이미지 밖으로 안 넘침.
-            모바일(sm 미만): transform 없이 → 화면들의 fixed inset-0 이 뷰포트 전체 기준이 되어
-              작은 정사각(≈100vw)에 갇혀 잘리지 않고 화면 전체를 씀. */}
-        {active && (
-          <div className="absolute inset-0 z-50 sm:[transform:translateZ(0)]">
+      </div>
+
+      {/* 오브젝트 화면/로그인 레이어 — body로 포탈해 방 프레임(overflow-hidden) 밖에 렌더한다.
+          iOS 사파리는 overflow-hidden 조상이 position:fixed 자식을 클립하는 버그가 있어,
+          프레임 안에 두면 모바일에서 화면이 정사각에 잘린다. body 직속이면 어떤 브라우저에서도
+          fixed inset-0 이 뷰포트 전체가 되어 안 잘린다. RoomProvider 안이라 context는 유지됨. */}
+      {active &&
+        mounted &&
+        createPortal(
+          <div className="fixed inset-0 z-[60]">
             {/* 로그인 폼 — 내 방에서 폰을 눌렀을 때(로그인 전) */}
             {!isVisiting && !loggedIn && active === "phone" && (
               <LoginIntro onLogin={login} onCancel={close} />
             )}
             {/* 오브젝트 새 화면 (로그인 후 또는 방문 중) */}
             {objectsReady && <ObjectScreen spot={active} onClose={close} onLogout={logout} />}
-          </div>
+          </div>,
+          document.body
         )}
-      </div>
 
       {/* 전역 클릭음 — 모든 클릭 가능한 요소에 통일된 UI 클릭음 */}
       <ClickSound />
