@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { CheckCircle, LockSimple } from "@phosphor-icons/react";
+import { ROOM_IMG } from "@/lib/spots";
 
 /**
  * 로그인 — 방 안 핸드폰에 줌인된 뒤 그 위로 뜬다.
@@ -34,9 +35,20 @@ export function LoginIntro({ onLogin, onCancel }: { onLogin: () => void; onCance
       role="dialog"
       aria-modal="true"
       aria-label="Log in with Renaiss"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(4,3,10,0.4)] backdrop-blur-[2px]"
+      className="fixed inset-0 z-50 flex items-center justify-center"
     >
-      <div className="w-[320px] rounded-panel bg-glass backdrop-blur-md border border-glassline shadow-[0_20px_60px_rgba(0,0,0,0.6)] p-6">
+      {/* 전체 뷰포트 방 배경 — 오브젝트 화면(ScreenShell)과 동일. 모바일에서 위아래 레터박스 검은 띠 방지 */}
+      <div aria-hidden className="absolute inset-0 overflow-hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={ROOM_IMG}
+          alt=""
+          draggable={false}
+          className="absolute inset-0 w-full h-full object-cover select-none blur-[3px] scale-[1.03]"
+        />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_75%_75%_at_50%_45%,theme(colors.bg/55%),theme(colors.bg/85%))]" />
+      </div>
+      <div className="relative z-10 w-[320px] rounded-panel bg-glass backdrop-blur-md border border-glassline shadow-[0_20px_60px_rgba(0,0,0,0.6)] p-6">
         {/* 브랜드 헤더 */}
         <div className="text-center mb-5">
           <div className="w-16 h-16 mx-auto rounded-full bg-white border border-amber/40 overflow-hidden mb-3 flex items-center justify-center">

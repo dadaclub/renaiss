@@ -439,11 +439,11 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
           )}
         </div>
 
-        {/* 진열장 본체 — 화면 전체가 선반 벽 (상하 + 좌우 스크롤) */}
-        <div className="flex-1 min-h-0 overflow-auto px-8 pt-5 pb-10">
+        {/* 진열장 본체 — 세로 스크롤. 카드 수는 폭에 맞춰 자동이라 가로 넘침 없음. 모바일은 좌우 여백 축소 */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 pt-5 pb-10">
           {syncing && cards.length === 0 ? (
             <Shelves
-              cards={Array.from({ length: SHELF_SIZE * 2 }, () => null)}
+              cards={Array.from({ length: SHELF_MAX * 2 }, () => null)}
               skeleton
               onSelect={() => {}}
             />
@@ -645,7 +645,7 @@ function RegisterModal({
         aria-modal="true"
         aria-label={editing ? "Edit card" : "Add a card"}
         tabIndex={-1}
-        className="w-[min(92vw,420px)] bg-glass border border-glassline rounded-panel p-6 flex flex-col gap-4 outline-none focus-visible:ring-2 focus-visible:ring-amber/60"
+        className="w-[min(92vw,420px)] max-h-[90dvh] overflow-y-auto bg-glass border border-glassline rounded-panel p-6 flex flex-col gap-4 outline-none focus-visible:ring-2 focus-visible:ring-amber/60"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-cream font-bold text-lg">{editing ? "Edit card" : "Add a card"}</h3>
@@ -1032,9 +1032,31 @@ function CardDetail({
  * 최종 진열장 아트가 나오면 아래 컴포넌트만 교체.
  * 카드 클릭 콜백/데이터 계약은 그대로 유지할 것. */
 
-const SHELF_SIZE = 5; // 선반 한 단에 놓이는 카드 수 (5장 = 방 이미지 안에서 가로 스크롤 안 남)
-// 카드 폭 — 화면 폭에 따라 88~132px 자동 조절 (방 이미지 안에 5장이 스크롤 없이 들어가게)
-const CARD_W = "w-[clamp(88px,10vw,132px)]";
+// 선반 한 단 카드 수 — 컨테이너 실제 폭을 재서 자동 결정 (모바일 좁으면 줄여 가로 넘침 방지)
+const SHELF_MAX = 5; // 데스크톱 한 단 최대
+const SHELF_MIN = 3; // 모바일 한 단 최소
+const CARD_TARGET = 108; // 카드 목표 폭(px) — 이 폭 기준으로 몇 장 들어갈지 계산
+const SHELF_GAP = 12; // 카드 사이 간격(gap-3)
+
+/** 컨테이너 폭(마운트 시 + 창 크기 변경 시)을 재서 한 단에 올릴 카드 수를 정한다.
+ *  카드는 grid로 칸을 꽉 채우므로 이 수만큼이 항상 가로 넘침 없이 들어간다.
+ *  ResizeObserver 대신 window resize만 듣는다 — 세로 스크롤바 등장/사라짐과의 루프를 피하려고. */
+function useFitColumns() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [cols, setCols] = useState(SHELF_MAX);
+  useEffect(() => {
+    const calc = () => {
+      const w = ref.current?.clientWidth ?? 0;
+      if (!w) return;
+      const n = Math.floor((w + SHELF_GAP) / (CARD_TARGET + SHELF_GAP));
+      setCols(Math.max(SHELF_MIN, Math.min(SHELF_MAX, n)));
+    };
+    calc();
+    window.addEventListener("resize", calc);
+    return () => window.removeEventListener("resize", calc);
+  }, []);
+  return [ref, cols] as const;
+}
 
 // 돋보기(loupe) — 카드 상세에서 아트에 마우스를 올리면 커서를 따라다니는 확대 렌즈 (액자 PhotoScreen과 동일 방식)
 const LOUPE = 116; // 렌즈 지름(px)
@@ -1059,20 +1081,24 @@ function Shelves({
   onAdd?: () => void;
   skeleton?: boolean;
 }) {
+  const [rootRef, cols] = useFitColumns();
   // "add" = 마지막 카드 바로 뒤에 서는 등록 슬롯. 단이 꽉 찼으면 자연스럽게 다음 단으로 넘어감.
   const items: (ShelfCard | null | "add")[] = onAdd && !skeleton ? [...cards, "add"] : cards;
   const rows: (ShelfCard | null | "add")[][] = [];
-  for (let i = 0; i < items.length; i += SHELF_SIZE) rows.push(items.slice(i, i + SHELF_SIZE));
+  for (let i = 0; i < items.length; i += cols) rows.push(items.slice(i, i + cols));
 
   return (
-    <div className="w-max min-w-full flex flex-col items-center">
-      {/* 선반 개수 = 카드 수에 맞춤. 선반 길이는 가장 긴 단에 맞춰 전부 동일 —
-          카드는 무조건 왼쪽부터 채움 (덜 찬 단도 좌측 정렬, 오른쪽이 빈 자리) */}
-      <div className="w-max flex flex-col gap-4">
+    <div ref={rootRef} className="w-full max-w-[720px] mx-auto flex flex-col gap-4">
+      {/* 한 단 카드 수 = cols(컨테이너 폭 기준 자동). 카드는 grid 칸을 꽉 채워 가로 넘침 없음.
+          카드는 왼쪽부터 채움 (덜 찬 단도 좌측 정렬, 오른쪽 칸이 빔) */}
+      <div className="flex flex-col gap-4">
         {rows.map((row, r) => (
           <div key={r}>
-            {/* 카드들 — 선반 턱 위에 정면으로, 왼쪽부터 서 있음. mb로 선반과 살짝 띄움 */}
-            <div className="flex items-end justify-start gap-3 px-5 mb-1.5">
+            {/* 카드들 — 선반 턱 위에 정면으로, 왼쪽부터. grid로 칸 균등 분할 */}
+            <div
+              className="grid items-end gap-3 px-2 mb-1.5"
+              style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+            >
               {row.map((card, i) =>
                 card === "add" ? (
                   // 카드 등록 슬롯 — self-stretch로 옆 카드(라벨+아트) 높이에 정확히 맞춤
@@ -1080,7 +1106,7 @@ function Shelves({
                     key="add"
                     onClick={onAdd}
                     aria-label="Add a card"
-                    className={`${CARD_W} shrink-0 self-stretch min-h-[128px] rounded-[10px] border-2 border-dashed border-glassline text-creamdim flex flex-col items-center justify-center gap-1.5 transition-colors duration-200 hover:border-amber hover:text-amber focus-visible:border-amber focus-visible:text-amber outline-none`}
+                    className="w-full self-stretch min-h-[128px] rounded-[10px] border-2 border-dashed border-glassline text-creamdim flex flex-col items-center justify-center gap-1.5 transition-colors duration-200 hover:border-amber hover:text-amber focus-visible:border-amber focus-visible:text-amber outline-none"
                   >
                     <Plus size={22} weight="bold" aria-hidden />
                     <span className="text-[11px] font-bold">Add card</span>
@@ -1089,7 +1115,7 @@ function Shelves({
                   <button
                     key={card.id}
                     onClick={() => onSelect(card)}
-                    className={`group relative ${CARD_W} shrink-0 rounded-[10px] transition-transform duration-200 hover:-translate-y-1.5 focus-visible:-translate-y-1.5 outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-2 focus-visible:ring-offset-bg`}
+                    className="group relative w-full rounded-[10px] transition-transform duration-200 hover:-translate-y-1.5 focus-visible:-translate-y-1.5 outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
                   >
                     {/* 스포트라이트 */}
                     <span
@@ -1101,7 +1127,7 @@ function Shelves({
                 ) : (
                   <div
                     key={i}
-                    className={`${CARD_W} shrink-0 aspect-[5/7] rounded-[6px] ${
+                    className={`w-full aspect-[5/7] rounded-[6px] ${
                       skeleton ? "bg-cream/[0.04] border border-glassline animate-pulse" : ""
                     }`}
                   />
