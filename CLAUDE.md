@@ -28,7 +28,7 @@
 3. **Renaiss 영역 불침범**: SBT 발급, 가챠 실행, 실거래는 절대 구현하지 않음. 공개 데이터 읽기 전용. (로그인은 프로토타입 목 — 실제 지갑 서명 없음)
 
 ## 진입 연출 (로그인)
-깜깜한 방 + 핸드폰만 빛남 → 핸드폰 클릭 시 줌인 → 르네시스 지갑 로그인(목) → 줌아웃하며 방이 밝아짐. `components/scene/LoginIntro.tsx` + `Scene.tsx`의 `entered` 상태로 게이팅.
+깜깜한 스플래시("탭해서 입장") → 탭하면 **밝은 방** + 핸드폰만 진동/벨소리로 울림 → 핸드폰 클릭 시 줌인 → 르네시스 지갑 로그인(목) → 로그인 완료 시 오브젝트 활성화(로그인 취소해도 밝은 방 유지, 폰은 계속 울림). `components/scene/LoginIntro.tsx` + `Scene.tsx`의 상태로 게이팅: `entered`(입장=방 밝아짐, `roomBright`), `loggedIn`(로그인=오브젝트·호버 활성, `objectsReady`). 폰 울림은 글로우 없이 진동(ring-shake)+벨소리(`useRingSound`)로만 표현.
 
 ## 기술 스택
 - Next.js 14 (App Router) + TypeScript
