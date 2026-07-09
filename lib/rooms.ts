@@ -18,7 +18,7 @@ export interface Room {
 export const ROOMS: Room[] = [
   {
     id: "dada",
-    ownerName: "Jada",
+    ownerName: "Dada",
     renaissUser: "b5250240-9661-4894-b2e4-88e48db44e07",
     avatarUrl: "https://8nothtoc5ds7a0x3.public.blob.vercel-storage.com/avatars/25.jpg",
   },
@@ -30,7 +30,7 @@ export const ROOMS: Room[] = [
   },
   {
     id: "jari",
-    ownerName: "jari",
+    ownerName: "ari",
     renaissUser: "daf9438f-f00a-4f67-b17b-fcbf39559ed1",
     avatarUrl: "https://8nothtoc5ds7a0x3.public.blob.vercel-storage.com/avatars/34.jpg",
   },
