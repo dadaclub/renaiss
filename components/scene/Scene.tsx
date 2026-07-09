@@ -53,9 +53,10 @@ export function Scene() {
   const room = getRoom(roomId);
   const isVisiting = roomId !== HOME_ROOM_ID;
   // 방문 중엔 스플래시/로그인 없이 바로 밝은 방 + 오브젝트 열람(읽기 전용)
-  // 방이 밝아지는 건 로그인 후(loggedIn) — 로그인 전(entered만)엔 깜깜한 방 + 폰만 울림.
-  // 로그인 취소 시에도 밝아지지 않고 폰 울리는 어두운 방으로 남는다.
-  const roomBright = loggedIn || isVisiting;
+  // 방은 스플래시를 탭해 입장(entered)하면 밝아진다 — 밝은 방에서 폰만 울리며 로그인을 유도.
+  // 로그인 취소해도 밝은 방(폰은 계속 울림)으로 남는다.
+  // 오브젝트 조작(호버 효과 포함)은 로그인 후(loggedIn/방문)부터.
+  const roomBright = entered || isVisiting;
   const objectsReady = loggedIn || isVisiting;
 
   // URL ?room= 를 상태에 반영 (마운트 + 뒤로가기)
@@ -178,7 +179,8 @@ export function Scene() {
               key={s.id}
               spot={s}
               disabled={!enabled}
-              pop={roomBright && !s.overlay}
+              // 호버 효과(팝·호버 글로우)는 로그인 후에만 — 밝은 방이라도 로그인 전 폰엔 호버 글로우를 안 얹는다
+              pop={objectsReady && !s.overlay}
               // 폰 진동 유도 — 내 방 로그인 전에만
               ring={isPhone && entered && !loggedIn && !active && !isVisiting}
               // 로그인 직후 웨이크 글로우 — 내 방에서만

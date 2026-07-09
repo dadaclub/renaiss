@@ -54,24 +54,19 @@ export function Hotspot({
           className="absolute inset-0 rounded-[inherit] opacity-0 scale-100 transition-all duration-200 group-hover:opacity-100 group-hover:scale-105 group-focus-visible:opacity-100 group-focus-visible:scale-105 [mask-image:radial-gradient(ellipse_at_center,black_55%,transparent_92%)] motion-reduce:transition-none pointer-events-none"
         />
       )}
-      {/* 울리는 핸드폰 — 이 영역 클립 복제본이 진동(ring-shake)해 "눌러서 받아라"를 유도.
-          모션 축소 환경에선 진동 대신 정적 amber 글로우만 남는다 */}
+      {/* 울리는 핸드폰 — 이 영역 방-이미지 조각을 ring-shake로 흔들어 폰이 실제로 진동한다
+          (벨소리 useRingSound 타이밍과 동기). 밝은 방에서 울리므로 글로우 없이 진동+소리로만 표현.
+          가장자리는 라디얼 마스크로 페더링해 사각형 티를 줄임. */}
       {ring && (
-        <>
-          <span
-            aria-hidden
-            className="absolute -inset-[18%] rounded-[inherit] mix-blend-screen bg-[radial-gradient(ellipse_at_center,theme(colors.amber/35%),transparent_72%)] opacity-0 animate-[fade-in_0.6s_ease-out_1.2s_both] motion-reduce:animate-none motion-reduce:opacity-100 pointer-events-none"
-          />
-          <span
-            aria-hidden
-            style={{
-              backgroundImage: `url(${ROOM_IMG})`,
-              backgroundSize: `${10000 / width}% ${10000 / height}%`,
-              backgroundPosition: `${(left / (100 - width)) * 100}% ${(top / (100 - height)) * 100}%`,
-            }}
-            className="absolute inset-0 rounded-[inherit] opacity-0 animate-ring motion-reduce:animate-none [mask-image:radial-gradient(ellipse_at_center,black_55%,transparent_92%)] pointer-events-none"
-          />
-        </>
+        <span
+          aria-hidden
+          style={{
+            backgroundImage: `url(${ROOM_IMG})`,
+            backgroundSize: `${10000 / width}% ${10000 / height}%`,
+            backgroundPosition: `${(left / (100 - width)) * 100}% ${(top / (100 - height)) * 100}%`,
+          }}
+          className="absolute inset-0 rounded-[inherit] opacity-0 animate-ring motion-reduce:animate-none [mask-image:radial-gradient(ellipse_at_center,black_55%,transparent_92%)] pointer-events-none"
+        />
       )}
       {/* 웨이크 글로우 — 로그인 직후 스팟 순서대로 한 번씩 amber로 빛남 */}
       {wake && (
@@ -81,11 +76,14 @@ export function Hotspot({
           className="absolute inset-0 rounded-[inherit] mix-blend-screen bg-[radial-gradient(ellipse_at_center,theme(colors.amber/50%),theme(colors.amber/20%)_55%,transparent_78%)] opacity-0 animate-wake motion-reduce:animate-none pointer-events-none"
         />
       )}
-      {/* 호버 글로우 — 가구 자체가 밝아짐 (어두운 아트에서만 효과) */}
-      <span
-        aria-hidden
-        className="absolute inset-0 rounded-[inherit] mix-blend-screen bg-[radial-gradient(ellipse_at_center,theme(colors.cream/65%),theme(colors.cream/25%)_55%,transparent_78%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none"
-      />
+      {/* 호버 글로우 — 가구 자체가 밝아짐. 방이 켜진 뒤에만(pop) 작동.
+          어두운 로그인 화면에선 폰의 울림 글로우와 겹치므로 끈다. */}
+      {pop && (
+        <span
+          aria-hidden
+          className="absolute inset-0 rounded-[inherit] mix-blend-screen bg-[radial-gradient(ellipse_at_center,theme(colors.cream/65%),theme(colors.cream/25%)_55%,transparent_78%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none"
+        />
+      )}
     </button>
   );
 }
