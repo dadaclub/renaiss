@@ -78,6 +78,25 @@ button:enabled,
   animation: tap-hint 2.4s ease-in-out infinite;
 }
 
+/* 진열장 전시(갤러리) 모드 — 검은 화면에 카드 한 장이 스포트라이트로 슝 들어왔다,
+   느리게 줌(Ken Burns) 되며 감상, 슝 빠져나간다. */
+@keyframes gallery-spotlight {
+  0%   { opacity: 0; transform: translateX(48px) scale(0.97); }
+  12%  { opacity: 1; transform: translateX(0) scale(1); }
+  86%  { opacity: 1; transform: translateX(0) scale(1.05); }
+  100% { opacity: 0; transform: translateX(-48px) scale(1.06); }
+}
+/* 모션 최소화 — 이동/줌 없이 크로스페이드만 */
+@keyframes gallery-fade {
+  0%, 100% { opacity: 0; }
+  15%, 85% { opacity: 1; }
+}
+/* 배경 카드 드리프트 — 한 벌 복제해 -50% 이동하면 이음새 없이 무한 흐름 */
+@keyframes gallery-drift {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
 /* 앨범 스티커 확대 상세 — 팝인 */
 @keyframes popIn {
   0% { opacity: 0; transform: scale(0.92); }

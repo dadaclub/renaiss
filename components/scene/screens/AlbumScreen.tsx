@@ -109,8 +109,9 @@ function StickerBinder({
   const cells = Array.from({ length: SLOTS }, (_, i) => pageItems[i] ?? null);
 
   return (
-    <div className="w-[min(92vw,540px)]">
-      {/* 폴백 배너는 흐름 밖(상단 고정)으로 빼서 바인더가 화면 정중앙에 오게 함 */}
+    <div className="w-[min(92vw,760px)]">
+      {/* 폴백 배너는 흐름 밖(상단 고정)으로 빼서 바인더가 화면 정중앙에 오게 함.
+          px 상한(760)만 키워 데스크톱에서 크게 — 모바일은 92vw가 이겨서 불변 */}
       {fallback && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-20 inline-flex items-center gap-1.5 text-[10px] font-semibold text-cream/80 whitespace-nowrap">
           <Warning size={12} weight="fill" className="shrink-0 text-down" aria-hidden />
