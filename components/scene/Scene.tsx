@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { SPOTS, Spot, SpotId, ROOM_IMG } from "@/lib/spots";
+import { SPOTS, Spot, SpotId, ROOM_IMG_DARK, ROOM_IMG_BRIGHT } from "@/lib/spots";
 import { getRoom, HOME_ROOM_ID } from "@/lib/rooms";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 import { BackgroundMusic } from "./BackgroundMusic";
@@ -13,6 +13,7 @@ import { OverlayEditor } from "./OverlayEditor";
 import { OverlayQuad } from "./OverlayQuad";
 import { RoomProvider } from "./RoomContext";
 import { SnackHoverSound } from "./SnackHoverSound";
+import { SnackCrumble } from "./SnackCrumble";
 import { ArrowLeft } from "@phosphor-icons/react";
 
 /**
@@ -30,6 +31,7 @@ export function Scene() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [active, setActive] = useState<SpotId | null>(null);
   const [hovered, setHovered] = useState<SpotId | null>(null); // 호버 중인 스팟 — 오버레이(액자 사진) pop용
+  const [crumbleKey, setCrumbleKey] = useState(0); // 과자봉지 클릭 시마다 증가 → SnackCrumble 구겨짐 재생
   // 현재 보고 있는 방 — SSR 안전 기본 홈, 마운트 후 URL ?room= 반영 (하이드레이션 일치)
   const [roomId, setRoomId] = useState<string>(HOME_ROOM_ID);
   const sceneRef = useRef<HTMLDivElement>(null);
@@ -53,10 +55,9 @@ export function Scene() {
   const room = getRoom(roomId);
   const isVisiting = roomId !== HOME_ROOM_ID;
   // 방문 중엔 스플래시/로그인 없이 바로 밝은 방 + 오브젝트 열람(읽기 전용)
-  // 방은 스플래시를 탭해 입장(entered)하면 밝아진다 — 밝은 방에서 폰만 울리며 로그인을 유도.
-  // 로그인 취소해도 밝은 방(폰은 계속 울림)으로 남는다.
-  // 오브젝트 조작(호버 효과 포함)은 로그인 후(loggedIn/방문)부터.
-  const roomBright = entered || isVisiting;
+  // 방은 로그인 성공(loggedIn) 후에 밝아진다 — 그 전(입장~폰 울림~로그인 화면)엔 room_dark,
+  // 성공 시 room_bright로 크로스페이드. 로그아웃하면 다시 어두워지고, 로그인 성공은 그 반대(대칭 페이드).
+  const roomBright = loggedIn || isVisiting;
   const objectsReady = loggedIn || isVisiting;
 
   // URL ?room= 를 상태에 반영 (마운트 + 뒤로가기)
@@ -99,16 +100,13 @@ export function Scene() {
     }
     // 방문 중 폰은 비활성 (홈 계정 로그아웃은 내 방에서만)
     if (spot.id === "phone" && isVisiting) return;
-    if (spot.id === "phone" && !loggedIn) {
-      // 로그인 연출: 핸드폰으로 줌인 (이것만 카메라 이동. 나머지는 새 화면을 위에 띄움)
-      const el = sceneRef.current;
-      if (el) {
-        const { cx, cy, scale } = spot.zoom;
-        const dx = (0.5 - cx) * el.offsetWidth * scale;
-        const dy = (0.5 - cy) * el.offsetHeight * scale;
-        setTransform(`translate(${dx}px, ${dy}px) scale(${scale})`);
-      }
+    // 과자봉지 = 화면 없는 이스터에그. 클릭하면 구겨지는 연출만 트리거하고 화면은 안 연다.
+    if (spot.id === "snack") {
+      setCrumbleKey((k) => k + 1);
+      return;
     }
+    // 로그인 연출은 카메라 줌 없이 — 폰 클릭 시 위에 로그인 모달만 뜨고, 승인하면 방이 밝아진다.
+    // (예전엔 폰으로 줌인했는데 모달이 그걸 가려서, 승인 후 줌아웃만 보여 어색했음)
     setActive(spot.id);
   };
 
@@ -137,15 +135,27 @@ export function Scene() {
     <main className="fixed inset-0 overflow-hidden flex items-center justify-center bg-room-ambient">
       {/* 프레임 = 방 이미지 정사각형. overflow-hidden으로 줌·오브젝트 화면을 이 안에 가둔다
           (정사각형 밖 검은 여백으론 절대 안 넘침). */}
-      <div className="relative shrink-0 w-[min(100vw,100vh)] aspect-square overflow-hidden">
+      <div className="relative shrink-0 w-[min(100vw,calc(100vh*1280/714))] aspect-[1280/714] overflow-hidden">
       {/* 카메라 = 폰 로그인 줌 대상. 프레임이 클립하므로 줌이 정사각형 밖으로 안 넘친다. */}
       <div
         ref={sceneRef}
         style={{ transform, transitionProperty: "transform", transitionDuration: "0.85s" }}
         className="absolute inset-0 ease-camera"
       >
+        {/* 방 배경 — 두 버전 크로스페이드. 어두운 방을 베이스로 깔고, 밝아지면(roomBright) 밝은 방을 페이드인.
+            둘 다 항상 DOM에 있어 프리로드됨 → 전환 시 로딩 깜빡임 없음. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={ROOM_IMG} alt="My room (sketch)" className="block w-full h-full select-none" draggable={false} />
+        <img src={ROOM_IMG_DARK} alt="My room" className="absolute inset-0 w-full h-full select-none" draggable={false} />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={ROOM_IMG_BRIGHT}
+          alt=""
+          aria-hidden
+          draggable={false}
+          className={`absolute inset-0 w-full h-full select-none transition-opacity duration-[900ms] ${
+            roomBright ? "opacity-100" : "opacity-0"
+          }`}
+        />
 
         {/* 방 아트 위에 얹는 오브젝트 사진 (예: 액자 속 사진). */}
         {SPOTS.map((s) =>
@@ -161,14 +171,7 @@ export function Scene() {
           ) : null
         )}
 
-        {/* 로그인 전: 방 전체를 은은히 어둡게 (입장/방문하면 페이드아웃) */}
-        <div
-          className={`absolute inset-0 bg-[rgba(6,4,3,0.5)] transition-opacity duration-[900ms] pointer-events-none ${
-            roomBright ? "opacity-0" : "opacity-100"
-          }`}
-        />
-
-        {SPOTS.map((s, i) => {
+        {SPOTS.map((s) => {
           const isPhone = s.id === "phone";
           // 로그인 전엔 폰만(로그인 게이트), 로그인/방문 후엔 전부. 화면 열림(active) 중엔 잠금.
           // 방문 중엔 폰 제외(홈 계정 전용).
@@ -183,16 +186,15 @@ export function Scene() {
               pop={objectsReady && !s.overlay}
               // 폰 진동 유도 — 내 방 로그인 전에만
               ring={isPhone && entered && !loggedIn && !active && !isVisiting}
-              // 로그인 직후 웨이크 글로우 — 내 방에서만
-              wake={loggedIn && !isVisiting}
-              wakeDelay={i * 0.12}
               onHover={(sp, h) => setHovered(h ? sp.id : (cur) => (cur === sp.id ? null : cur))}
               onSelect={select}
             />
           );
         })}
 
-        <SnackHoverSound active={objectsReady && !active} />
+        {/* 과자봉지 호버 시 비닐 부스럭 소리 + 클릭 시 구겨짐 연출 */}
+        <SnackHoverSound active={objectsReady && !active && hovered === "snack"} />
+        <SnackCrumble trigger={crumbleKey} />
 
         {edit && (
           <OverlayEditor

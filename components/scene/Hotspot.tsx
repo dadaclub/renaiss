@@ -9,10 +9,6 @@ interface Props {
   pop?: boolean;
   /** 울리는 핸드폰 진동 — 입장 후 로그인 전, "이걸 눌러야 한다"는 유도. 폰 스팟 전용 */
   ring?: boolean;
-  /** 로그인 직후 한 번 빛나는 웨이크 글로우 — 오브젝트가 인터랙티브해졌다는 피드백 */
-  wake?: boolean;
-  /** 웨이크 글로우 시작 지연(초) — Scene이 스팟 순서대로 스태거를 준다 */
-  wakeDelay?: number;
   /** 호버 상태 알림 — Scene이 오버레이(액자 사진) pop에 사용 */
   onHover?: (spot: Spot, hovering: boolean) => void;
   onSelect: (spot: Spot) => void;
@@ -23,13 +19,21 @@ export function Hotspot({
   disabled,
   pop = false,
   ring = false,
-  wake = false,
-  wakeDelay = 0,
   onHover,
   onSelect,
 }: Props) {
   const { left, top, width, height } = spot.area;
   useRingSound("/sounds/phone-ring.mp3", ring);
+  // clip이 있으면 area(바운딩 박스) 안에서 실제 오브젝트 모양(다각형)으로 히트/호버 영역을 좁힌다.
+  const clip = spot.clip;
+  const clipPath = clip
+    ? `polygon(${(["tl", "tr", "br", "bl"] as const)
+        .map((k) => {
+          const [cx, cy] = clip[k];
+          return `${(((cx - left) / width) * 100).toFixed(2)}% ${(((cy - top) / height) * 100).toFixed(2)}%`;
+        })
+        .join(", ")})`
+    : undefined;
   return (
     <button
       // 클릭음은 전역(ClickSound)에서 pointerdown 위임으로 처리 — 여기선 진입만.
@@ -38,7 +42,7 @@ export function Hotspot({
       onMouseLeave={() => onHover?.(spot, false)}
       disabled={disabled}
       aria-label={spot.label}
-      style={{ left: `${left}%`, top: `${top}%`, width: `${width}%`, height: `${height}%` }}
+      style={{ left: `${left}%`, top: `${top}%`, width: `${width}%`, height: `${height}%`, clipPath }}
       className="hotspot-cursor group absolute rounded-[14px] disabled:pointer-events-none"
     >
       {/* 호버 팝 — 방 이미지에서 이 영역만 잘라낸 복제본을 5% 확대 (가구가 살짝 커지는 효과).
@@ -55,8 +59,8 @@ export function Hotspot({
         />
       )}
       {/* 울리는 핸드폰 — 이 영역 방-이미지 조각을 ring-shake로 흔들어 폰이 실제로 진동한다
-          (벨소리 useRingSound 타이밍과 동기). 밝은 방에서 울리므로 글로우 없이 진동+소리로만 표현.
-          가장자리는 라디얼 마스크로 페더링해 사각형 티를 줄임. */}
+          (벨소리 useRingSound 타이밍과 동기). bright 이미지를 복제해, 어두운 방에서 폰 화면만
+          켜진 것처럼(로고 있는 밝은 폰이 울리는 연출) 보이게 한다. 가장자리는 라디얼 마스크로 페더링. */}
       {ring && (
         <span
           aria-hidden
@@ -66,14 +70,6 @@ export function Hotspot({
             backgroundPosition: `${(left / (100 - width)) * 100}% ${(top / (100 - height)) * 100}%`,
           }}
           className="absolute inset-0 rounded-[inherit] opacity-0 animate-ring motion-reduce:animate-none [mask-image:radial-gradient(ellipse_at_center,black_55%,transparent_92%)] pointer-events-none"
-        />
-      )}
-      {/* 웨이크 글로우 — 로그인 직후 스팟 순서대로 한 번씩 amber로 빛남 */}
-      {wake && (
-        <span
-          aria-hidden
-          style={{ animationDelay: `${wakeDelay}s` }}
-          className="absolute inset-0 rounded-[inherit] mix-blend-screen bg-[radial-gradient(ellipse_at_center,theme(colors.amber/50%),theme(colors.amber/20%)_55%,transparent_78%)] opacity-0 animate-wake motion-reduce:animate-none pointer-events-none"
         />
       )}
       {/* 호버 글로우 — 가구 자체가 밝아짐. 방이 켜진 뒤에만(pop) 작동.
