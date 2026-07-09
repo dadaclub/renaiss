@@ -89,7 +89,9 @@ export function CabinetGallery({ cards, onExit }: { cards: GalleryCard[]; onExit
       <div className="absolute inset-0 grid place-items-center p-8">
         <div
           key={index}
-          className="relative h-[68vh] max-h-[560px] aspect-[63/88] animate-[gallery-spotlight_4.5s_ease-in-out_both] motion-reduce:animate-[gallery-fade_4.5s_ease-in-out_both]"
+          // 폭·높이 둘 다 뷰포트 안에 맞춘다: 폭은 90vw 이하 + 높이(aspect)로 환산해도 72vh 이하.
+          // (예전엔 높이 기준만이라 세로로 긴 모바일에서 카드 폭이 화면 폭을 넘어 잘렸음)
+          className="relative w-[min(90vw,calc(72vh*63/88))] max-w-[400px] aspect-[63/88] animate-[gallery-spotlight_4.5s_ease-in-out_both] motion-reduce:animate-[gallery-fade_4.5s_ease-in-out_both]"
         >
           {/* 네온 글로우 */}
           <div
