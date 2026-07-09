@@ -251,11 +251,13 @@ export function Scene() {
         {/* 배경음악/스피커 — 방 이미지 우하단 */}
         <BackgroundMusic active={objectsReady} />
 
-        {/* 오브젝트 화면/로그인 레이어 — 방 정사각형 안에만. transform(translateZ) 덕에
-            화면들의 fixed inset-0 이 이 레이어(=정사각형) 기준이 되고, 프레임 overflow-hidden이 클립.
-            → 진열장·앨범·방명록 등 모든 오브젝트가 방 이미지 밖으로 안 넘친다. */}
+        {/* 오브젝트 화면/로그인 레이어.
+            데스크톱(sm+): transform(translateZ)으로 화면들의 fixed inset-0 을 이 레이어(=정사각형)
+              기준으로 가둬 프레임 overflow-hidden이 클립 → 방 이미지 밖으로 안 넘침.
+            모바일(sm 미만): transform 없이 → 화면들의 fixed inset-0 이 뷰포트 전체 기준이 되어
+              작은 정사각(≈100vw)에 갇혀 잘리지 않고 화면 전체를 씀. */}
         {active && (
-          <div className="absolute inset-0 z-50" style={{ transform: "translateZ(0)" }}>
+          <div className="absolute inset-0 z-50 sm:[transform:translateZ(0)]">
             {/* 로그인 폼 — 내 방에서 폰을 눌렀을 때(로그인 전) */}
             {!isVisiting && !loggedIn && active === "phone" && (
               <LoginIntro onLogin={login} onCancel={close} />

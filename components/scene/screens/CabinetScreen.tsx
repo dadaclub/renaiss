@@ -645,7 +645,7 @@ function RegisterModal({
         aria-modal="true"
         aria-label={editing ? "Edit card" : "Add a card"}
         tabIndex={-1}
-        className="w-[min(92vw,420px)] bg-glass border border-glassline rounded-panel p-6 flex flex-col gap-4 outline-none focus-visible:ring-2 focus-visible:ring-amber/60"
+        className="w-[min(92vw,420px)] max-h-[90dvh] overflow-y-auto bg-glass border border-glassline rounded-panel p-6 flex flex-col gap-4 outline-none focus-visible:ring-2 focus-visible:ring-amber/60"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-cream font-bold text-lg">{editing ? "Edit card" : "Add a card"}</h3>
