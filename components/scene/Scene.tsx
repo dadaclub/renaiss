@@ -39,9 +39,16 @@ export function Scene() {
   const [editSpotId, setEditSpotId] = useState<SpotId>("photo"); // 편집기에서 치수 재는 대상 스팟
   // 방 이동 연출 — 화면을 덮고 팩맨이 점 먹는 로딩을 보여준 뒤 새 방을 드러냄
   const [moving, setMoving] = useState(false);
-  // 오브젝트 화면을 body로 포탈하기 위한 마운트 게이트 (SSR 안전)
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  // 모바일이면 오브젝트 화면을 body로 포탈(전체화면), 데스크톱이면 방 정사각 안에 컨테인.
+  // (SSR/초기값 false=데스크톱 — 오브젝트 화면은 클릭 후에만 뜨므로 그땐 이미 판정됨)
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const on = () => setIsMobile(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
 
   const room = getRoom(roomId);
   const isVisiting = roomId !== HOME_ROOM_ID;
@@ -255,21 +262,30 @@ export function Scene() {
         {/* 배경음악/스피커 — 방 이미지 우하단 */}
         <BackgroundMusic active={objectsReady} />
 
-      </div>
-
-      {/* 오브젝트 화면/로그인 레이어 — body로 포탈해 방 프레임(overflow-hidden) 밖에 렌더한다.
-          iOS 사파리는 overflow-hidden 조상이 position:fixed 자식을 클립하는 버그가 있어,
-          프레임 안에 두면 모바일에서 화면이 정사각에 잘린다. body 직속이면 어떤 브라우저에서도
-          fixed inset-0 이 뷰포트 전체가 되어 안 잘린다. RoomProvider 안이라 context는 유지됨. */}
-      {active &&
-        mounted &&
-        createPortal(
-          <div className="fixed inset-0 z-[60]">
-            {/* 로그인 폼 — 내 방에서 폰을 눌렀을 때(로그인 전) */}
+        {/* 데스크톱: 오브젝트 화면을 프레임 안 + transform으로 방 정사각에 컨테인 (기존 룩 유지, 확대 방지).
+            모바일 버전은 아래에서 body로 포탈. */}
+        {active && !isMobile && (
+          <div className="absolute inset-0 z-50" style={{ transform: "translateZ(0)" }}>
             {!isVisiting && !loggedIn && active === "phone" && (
               <LoginIntro onLogin={login} onCancel={close} />
             )}
-            {/* 오브젝트 새 화면 (로그인 후 또는 방문 중) */}
+            {objectsReady && <ObjectScreen spot={active} onClose={close} onLogout={logout} />}
+          </div>
+        )}
+
+      </div>
+
+      {/* 모바일: 오브젝트 화면을 body로 포탈해 프레임(overflow-hidden) 밖에 렌더.
+          iOS 사파리는 overflow-hidden 조상이 position:fixed 자식을 클립하는 버그가 있어,
+          프레임 안에 두면 정사각에 잘린다. body 직속이면 fixed inset-0 이 뷰포트 전체가 되어 안 잘림.
+          RoomProvider 안이라 context는 유지됨. */}
+      {active &&
+        isMobile &&
+        createPortal(
+          <div className="fixed inset-0 z-[60]">
+            {!isVisiting && !loggedIn && active === "phone" && (
+              <LoginIntro onLogin={login} onCancel={close} />
+            )}
             {objectsReady && <ObjectScreen spot={active} onClose={close} onLogout={logout} />}
           </div>,
           document.body
