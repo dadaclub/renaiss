@@ -18,13 +18,13 @@ export interface Room {
 export const ROOMS: Room[] = [
   {
     id: "dada",
-    ownerName: "dada",
+    ownerName: "Jada",
     renaissUser: "b5250240-9661-4894-b2e4-88e48db44e07",
     avatarUrl: "https://8nothtoc5ds7a0x3.public.blob.vercel-storage.com/avatars/25.jpg",
   },
   {
     id: "ari",
-    ownerName: "ari",
+    ownerName: "joh",
     renaissUser: "7e76696c-c18b-46cd-9a51-b58c8a71a834",
     avatarUrl: "https://8nothtoc5ds7a0x3.public.blob.vercel-storage.com/avatars/38.jpg",
   },
