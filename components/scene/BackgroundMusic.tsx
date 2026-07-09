@@ -57,12 +57,12 @@ export function BackgroundMusic({ active }: { active: boolean }) {
       type="button"
       onClick={() => setMuted((m) => !m)}
       aria-label={muted ? "Unmute background music" : "Mute background music"}
-      className="absolute right-5 bottom-5 z-30 grid h-9 w-9 place-items-center rounded-full bg-glass border border-glassline text-creamdim hover:text-cream transition-colors"
+      className="absolute right-3 bottom-3 sm:right-5 sm:bottom-5 z-30 grid h-7 w-7 sm:h-9 sm:w-9 place-items-center rounded-full bg-glass border border-glassline text-creamdim hover:text-cream transition-colors"
     >
       {muted ? (
-        <SpeakerSlash size={16} weight="bold" aria-hidden />
+        <SpeakerSlash className="w-3.5 h-3.5 sm:w-4 sm:h-4" weight="bold" aria-hidden />
       ) : (
-        <SpeakerHigh size={16} weight="bold" aria-hidden />
+        <SpeakerHigh className="w-3.5 h-3.5 sm:w-4 sm:h-4" weight="bold" aria-hidden />
       )}
     </button>
   );
