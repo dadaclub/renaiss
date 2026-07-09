@@ -5,11 +5,12 @@ import {
   ArrowsClockwise,
   Cards,
   CaretDown,
+  CaretLeft,
+  CaretRight,
   CaretUp,
-  LinkSimple,
-  Package,
   PencilSimple,
   Plus,
+  Trash,
   TrendDown,
   TrendUp,
   Warning,
@@ -173,6 +174,16 @@ interface OpSearchCard {
 const TINTS = ["#38284A", "#22314A", "#1E3A38", "#46341E", "#1F3D2C"];
 const today = () => new Date().toISOString().slice(0, 10).replaceAll("-", ".");
 
+/** 저장된 날짜("YYYY.MM.DD" 또는 ISO)를 영어 표기("Jul 8, 2026")로. UI 기본 언어가 영어라서.
+ *  로컬 Date(연,월,일)로 만들어 타임존 하루 밀림을 피한다. 파싱 실패 시 원문 그대로. */
+function fmtDate(s: string): string {
+  const m = s.match(/(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
+  const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(s);
+  return isNaN(d.getTime())
+    ? s
+    : d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+
 /* ================= 화면 로직 ================= */
 
 type SortKey = "newest" | "oldest" | "priceHigh" | "priceLow";
@@ -222,7 +233,8 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
   const [syncError, setSyncError] = useState(false); // 실시간 동기화 실패 → 목데이터로 대체됨
   const [sort, setSort] = useState<SortKey>("newest");
   const [modal, setModal] = useState<ModalState>(null);
-  const [selected, setSelected] = useState<ShelfCard | null>(null);
+  // 상세로 연 카드는 id로 추적 — 정렬(visible) 안에서 앞/뒤로 이동하기 위해 인덱스를 매번 새로 계산
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // 마운트 시 이 방 주인의 온체인 카드 + 등록 카드 자동 로드
   useEffect(() => {
@@ -327,16 +339,22 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
       .then();
   }
 
+  // 삭제는 수정 모달 안에서 실행 → 상세·모달 모두 닫는다
   function removeCard(id: string) {
     const target = cards.find((c) => c.id === id);
     setCards((prev) => prev.filter((c) => c.id !== id));
-    setSelected(null);
+    setSelectedId(null);
+    setModal(null);
     if (target?.fromDb) {
       void supabase.from("showcase_cards").delete().eq("id", id).then();
     }
   }
 
   const visible = useMemo(() => sortCards(cards, sort), [cards, sort]);
+
+  // 상세로 연 카드의 현재 정렬 내 위치 — 좌우 이동/양끝 판정의 기준
+  const selectedIndex = selectedId ? visible.findIndex((c) => c.id === selectedId) : -1;
+  const selectedCard = selectedIndex >= 0 ? visible[selectedIndex] : null;
 
   // 패널 페이드인 연출용
   const [shown, setShown] = useState(false);
@@ -446,7 +464,7 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
             // 방문 중(읽기 전용)엔 Add 슬롯 없음
             <Shelves
               cards={visible}
-              onSelect={setSelected}
+              onSelect={(c) => setSelectedId(c.id)}
               onAdd={isOwnRoom ? () => setModal("register") : undefined}
             />
           )}
@@ -473,19 +491,25 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
           onSubmit={(c) => updatePhysical(modal.edit.id, c)}
           onAddOnchain={addOnchain}
           onSync={syncWallet}
+          onRemove={removeCard}
           onClose={() => setModal(null)}
         />
       )}
-      {selected && (
+      {selectedCard && (
         <CardDetail
-          card={selected}
+          card={selectedCard}
           readOnly={!isOwnRoom}
-          onRemove={removeCard}
+          hasPrev={selectedIndex > 0}
+          hasNext={selectedIndex < visible.length - 1}
+          onPrev={() => selectedIndex > 0 && setSelectedId(visible[selectedIndex - 1].id)}
+          onNext={() =>
+            selectedIndex < visible.length - 1 && setSelectedId(visible[selectedIndex + 1].id)
+          }
           onEdit={(c) => {
-            setSelected(null);
+            setSelectedId(null);
             setModal({ edit: c });
           }}
-          onClose={() => setSelected(null)}
+          onClose={() => setSelectedId(null)}
         />
       )}
     </div>
@@ -517,6 +541,7 @@ function RegisterModal({
   onSubmit,
   onAddOnchain,
   onSync,
+  onRemove,
   onClose,
 }: {
   /** 있으면 수정 모드 — 기존 실물 카드 값을 채워서 열고, 저장 시 그 카드를 덮어씀 */
@@ -524,6 +549,8 @@ function RegisterModal({
   onSubmit: (c: PhysicalInput) => void;
   onAddOnchain: (c: OnchainCardDto) => void;
   onSync: () => void;
+  /** 수정 모드에서 이 카드를 삭제 (상세의 삭제 버튼을 여기로 통합) */
+  onRemove?: (id: string) => void;
   onClose: () => void;
 }) {
   const editing = initial !== undefined;
@@ -545,6 +572,8 @@ function RegisterModal({
   const [tokenId, setTokenId] = useState("");
   const [tokenLoading, setTokenLoading] = useState(false);
   const [tokenError, setTokenError] = useState(false);
+  // 수정 모드 삭제 확인 (한 번 더 눌러야 실제 삭제)
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEscapeToClose(onClose);
@@ -767,6 +796,37 @@ function RegisterModal({
             >
               {editing ? "Save changes" : "Add to showcase"}
             </button>
+            {/* 삭제 — 수정 모드에서만. 상세 화면의 삭제 버튼을 여기로 통합. 한 번 더 확인 후 삭제 */}
+            {editing && onRemove && initial && (
+              <div className="flex items-center justify-center pt-1">
+                {confirmingRemove ? (
+                  <div className="flex items-center gap-3 text-[11px] font-bold">
+                    <span className="text-creamdim">Remove this card?</span>
+                    <button
+                      onClick={() => onRemove(initial.id)}
+                      className="inline-flex items-center gap-1 text-down hover:brightness-110 transition"
+                    >
+                      <Trash size={12} weight="bold" aria-hidden />
+                      Remove
+                    </button>
+                    <button
+                      onClick={() => setConfirmingRemove(false)}
+                      className="text-creamdim hover:text-cream transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setConfirmingRemove(true)}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-down/80 hover:text-down transition-colors"
+                  >
+                    <Trash size={12} weight="bold" aria-hidden />
+                    Remove from showcase
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -839,25 +899,45 @@ function GameSelect({ value, onChange }: { value: string; onChange: (id: string)
 function CardDetail({
   card,
   readOnly = false,
-  onRemove,
+  hasPrev,
+  hasNext,
+  onPrev,
+  onNext,
   onEdit,
   onClose,
 }: {
   card: ShelfCard;
   /** 방문 중(남의 방) — 수정·삭제 숨김 */
   readOnly?: boolean;
-  onRemove: (id: string) => void;
+  /** 정렬순 앞/뒤 카드 존재 여부 — 없으면 해당 화살표 비활성 */
+  hasPrev: boolean;
+  hasNext: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+  /** 수정 화면 열기 — 삭제도 그 안에서 (상세 화면엔 연필 하나로 통일) */
   onEdit: (c: ShelfCard) => void;
   onClose: () => void;
 }) {
   const up = (card.delta30d ?? 0) >= 0;
-  const [confirmingRemove, setConfirmingRemove] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEscapeToClose(onClose);
   useEffect(() => {
     panelRef.current?.focus();
   }, []);
+
+  // ←/→ 키로도 이동
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft" && hasPrev) onPrev();
+      else if (e.key === "ArrowRight" && hasNext) onNext();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [hasPrev, hasNext, onPrev, onNext]);
+
+  // 직접 등록한 카드(실물/온체인 수동 등록)만 수정·삭제 가능. 방문 중(readOnly)엔 숨김
+  const editable = !readOnly && (card.origin === "physical" || card.fromDb);
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-bg/70 backdrop-blur-sm" onClick={onClose}>
@@ -867,34 +947,64 @@ function CardDetail({
         aria-modal="true"
         aria-label={`${card.name} details`}
         tabIndex={-1}
-        className="w-[min(92vw,400px)] bg-glass border border-glassline rounded-panel p-6 flex flex-col items-center gap-4 outline-none focus-visible:ring-2 focus-visible:ring-amber/60"
+        className="relative w-[min(92vw,400px)] bg-glass border border-glassline rounded-panel p-6 flex flex-col items-center gap-4 outline-none focus-visible:ring-2 focus-visible:ring-amber/60"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="w-[210px] drop-shadow-[0_0_35px_theme(colors.amber/30%)]">
-          <GradedSlab card={card} large />
-        </div>
-        <div className="text-center">
-          <div className="text-cream font-bold text-lg">{card.name}</div>
-          <div className="text-[12px] text-creamdim font-semibold mt-0.5">
-            {card.grade} · {card.franchise}
-            {card.acquiredAt ? ` · ${card.acquiredAt}` : ""}
-          </div>
-          <div className="text-[12px] font-bold mt-1.5">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-ambersoft text-amber">
-              {card.origin === "onchain" ? (
-                <>
-                  <LinkSimple size={11} weight="bold" aria-hidden />
-                  On-chain
-                </>
-              ) : (
-                <>
-                  <Package size={11} weight="bold" aria-hidden />
-                  Physical{card.certNumber ? ` · #${card.certNumber}` : ""}
-                </>
-              )}
+        {/* 좌우 이동 — 카드 양옆(패널 안쪽 여백)에 붙여 카드 뷰어의 일부처럼. 끝이면 흐리게 비활성 */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onPrev(); }}
+          disabled={!hasPrev}
+          aria-label="Previous card"
+          className="absolute left-1.5 top-1/2 -translate-y-1/2 z-10 grid place-items-center w-10 h-10 rounded-full bg-inkdark/60 border border-glassline text-cream backdrop-blur-md transition-colors hover:border-amber hover:text-amber disabled:opacity-20 disabled:pointer-events-none"
+        >
+          <CaretLeft size={18} weight="bold" aria-hidden />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onNext(); }}
+          disabled={!hasNext}
+          aria-label="Next card"
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 z-10 grid place-items-center w-10 h-10 rounded-full bg-inkdark/60 border border-glassline text-cream backdrop-blur-md transition-colors hover:border-amber hover:text-amber disabled:opacity-20 disabled:pointer-events-none"
+        >
+          <CaretRight size={18} weight="bold" aria-hidden />
+        </button>
+
+        {/* 상단 한 줄 — 출처(좌) · 콜렉션명(중앙, 가장 큼) · 수정(우). 모두 세로 중앙 정렬로 줄 맞춤 */}
+        <div className="relative w-full flex items-center justify-center min-h-8">
+          {/* 출처(실물/온체인) — 좌측, 콜렉션명과 같은 줄. 아이콘 없이 텍스트만 */}
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 inline-flex items-center text-[10px] font-bold px-2 py-1 rounded-full bg-cream/[0.06] border border-glassline text-creamdim">
+            {card.origin === "onchain"
+              ? "On-chain"
+              : `Physical${card.certNumber ? ` · #${card.certNumber}` : ""}`}
+          </span>
+          {/* 콜렉션(프랜차이즈) — 중앙, 라벨 위계 최상단이라 가장 크게 */}
+          {card.franchise && (
+            <span className="px-14 text-center text-amber text-[13px] font-bold uppercase tracking-[0.2em]">
+              {card.franchise}
             </span>
-          </div>
+          )}
+          {/* 수정(삭제 포함) — 우측 연필 하나. 편집 가능한 카드에만 */}
+          {editable && (
+            <button
+              onClick={() => onEdit(card)}
+              aria-label="Edit card"
+              className="absolute right-0 top-1/2 -translate-y-1/2 grid place-items-center w-8 h-8 rounded-full text-creamdim hover:text-amber hover:bg-cream/[0.06] transition-colors"
+            >
+              <PencilSimple size={15} weight="bold" aria-hidden />
+            </button>
+          )}
         </div>
+
+        {/* 카드 — 이름·등급은 슬랩 라벨에 이미 있으니 아래에 반복하지 않음.
+            zoomable: 아트에 마우스를 올리면 돋보기로 확대해 디자인을 자세히 볼 수 있음 */}
+        <div className="w-[210px] drop-shadow-[0_0_35px_theme(colors.amber/30%)]">
+          <GradedSlab card={card} large zoomable />
+        </div>
+
+        {/* 카드 밑 — 취득 날짜만 (영어 표기) */}
+        {card.acquiredAt && (
+          <div className="text-[12px] text-creamdim font-semibold">{fmtDate(card.acquiredAt)}</div>
+        )}
+
         {card.priceUsd !== undefined && (
           <div className="text-center">
             <div className="text-cream text-xl font-extrabold">{fmtUsd(card.priceUsd)}</div>
@@ -912,42 +1022,7 @@ function CardDetail({
             )}
           </div>
         )}
-        {/* 직접 등록한 카드(실물/온체인 수동 등록)만 수정·삭제. 방문 중(readOnly)엔 숨김 */}
-        {!readOnly && (card.origin === "physical" || card.fromDb) && (
-          confirmingRemove ? (
-            <div className="flex items-center gap-3 text-[11px] font-bold">
-              <span className="text-creamdim">Remove for good?</span>
-              <button
-                onClick={() => onRemove(card.id)}
-                className="text-down hover:brightness-110 transition"
-              >
-                Yes, remove
-              </button>
-              <button
-                onClick={() => setConfirmingRemove(false)}
-                className="text-creamdim hover:text-cream transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => onEdit(card)}
-                className="inline-flex items-center gap-1 text-[11px] font-bold text-creamdim hover:text-amber transition-colors"
-              >
-                <PencilSimple size={12} weight="bold" aria-hidden />
-                Edit card
-              </button>
-              <button
-                onClick={() => setConfirmingRemove(true)}
-                className="text-[11px] font-bold text-down/80 hover:text-down transition-colors"
-              >
-                Remove from showcase
-              </button>
-            </div>
-          )
-        )}
+
       </div>
     </div>
   );
@@ -960,6 +1035,14 @@ function CardDetail({
 const SHELF_SIZE = 5; // 선반 한 단에 놓이는 카드 수 (5장 = 방 이미지 안에서 가로 스크롤 안 남)
 // 카드 폭 — 화면 폭에 따라 88~132px 자동 조절 (방 이미지 안에 5장이 스크롤 없이 들어가게)
 const CARD_W = "w-[clamp(88px,10vw,132px)]";
+
+// 돋보기(loupe) — 카드 상세에서 아트에 마우스를 올리면 커서를 따라다니는 확대 렌즈 (액자 PhotoScreen과 동일 방식)
+const LOUPE = 116; // 렌즈 지름(px)
+const LOUPE_ZOOM = 1.2; // 확대 배율
+// 온체인 슬랩 렌더 크롭 상수 — 아래 GradedSlab의 아트 className(w-268% / -ml-84.5% / -mt-68%)과 반드시 일치
+const OC_SCALE = 2.68;
+const OC_OFF_X = 0.845;
+const OC_OFF_Y = 0.68;
 
 /** 월 레지 선반 여러 단 — 얇은 선반 턱 위에 카드가 정면으로 빽빽하게 서 있음.
  *  레퍼런스: 카드샵 월 디스플레이 + 투명 쇼케이스.
@@ -1043,12 +1126,47 @@ function Shelves({
  *  - 온체인(Renaiss) 카드: 슬랩 렌더 사진에서 카드 부분만 잘라 아트 칸에 (사진 속 PSA 라벨은
  *    우리 라벨과 중복이라 크롭)
  *  - 이미지 없음: emoji+tint 플레이스홀더 */
-function GradedSlab({ card, large = false }: { card: ShelfCard; large?: boolean }) {
+function GradedSlab({
+  card,
+  large = false,
+  zoomable = false,
+}: {
+  card: ShelfCard;
+  large?: boolean;
+  /** 카드 상세용 — 아트에 마우스를 올리면 돋보기 렌즈로 확대 */
+  zoomable?: boolean;
+}) {
   // Renaiss 이름은 "PSA 10 Gem Mint 2025 ... #132 Mienshao"처럼 길다 — 라벨엔 카드명만
   const label =
     card.origin === "onchain" ? (card.name.match(/#\d+\s+(.+)$/)?.[1] ?? card.name) : card.name;
   // 등급도 라벨 배지엔 "PSA 10"까지만 (풀 등급명은 상세에서)
   const gradeShort = card.grade.match(/^(?:PSA|BGS|CGC|SGC)\s*\d+(?:\.\d+)?/i)?.[0] ?? card.grade;
+
+  const [lens, setLens] = useState<{ x: number; y: number; bgSize: string; bgPos: string } | null>(
+    null
+  );
+  const canZoom = zoomable && !!card.imageUrl;
+
+  // 돋보기 위치 계산 — 온체인은 아트가 슬랩 렌더의 크롭(w-268%/-ml-84.5%/-mt-68%)이라
+  // 렌즈 배경도 같은 스케일·오프셋으로 맞춰야 표시 화면과 일치한다.
+  function handleMove(e: React.MouseEvent<HTMLDivElement>) {
+    if (!canZoom) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+    const oc = card.origin === "onchain";
+    const dispW = oc ? rect.width * OC_SCALE : rect.width;
+    const dispH = oc ? rect.width * OC_SCALE : rect.height; // 온체인 렌더는 정사각
+    const offX = oc ? rect.width * OC_OFF_X : 0;
+    const offY = oc ? rect.width * OC_OFF_Y : 0;
+    setLens({
+      x: cx,
+      y: cy,
+      bgSize: `${dispW * LOUPE_ZOOM}px ${dispH * LOUPE_ZOOM}px`,
+      // 커서 지점이 렌즈 중앙에 오도록 배경을 이동
+      bgPos: `${LOUPE / 2 - (cx + offX) * LOUPE_ZOOM}px ${LOUPE / 2 - (cy + offY) * LOUPE_ZOOM}px`,
+    });
+  }
 
   return (
     <div className="relative rounded-[10px] border border-cream/25 bg-gradient-to-b from-cream/[0.10] to-cream/[0.03] p-[5%] shadow-[inset_0_1px_0_theme(colors.cream/20%),0_6px_18px_rgba(0,0,0,0.45)]">
@@ -1063,35 +1181,58 @@ function GradedSlab({ card, large = false }: { card: ShelfCard; large?: boolean 
           {gradeShort}
         </span>
       </div>
-      {/* 카드 아트 — 실카드 이미지 / 슬랩 렌더 크롭 / 플레이스홀더 */}
-      {card.imageUrl && card.origin === "onchain" ? (
-        // Renaiss 슬랩 렌더(440×440 정사각)에서 카드 창 부분(x136–306, y112–342 실측)만
-        // 확대해 보여준다 — 사진 속 PSA 라벨·크롬 케이스는 우리 라벨과 중복이라 크롭
-        <div className="w-full aspect-[5/7] rounded-[6px] overflow-hidden border border-cream/10 select-none">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+      {/* 카드 아트 — 공통 래퍼(overflow-hidden)로 통일. zoomable이면 돋보기 렌즈를 얹는다.
+          실카드 이미지 / 슬랩 렌더 크롭 / 플레이스홀더 세 경우 모두 이 래퍼 안에 렌더 */}
+      <div
+        onMouseMove={handleMove}
+        onMouseLeave={() => setLens(null)}
+        className={`relative w-full aspect-[5/7] rounded-[6px] overflow-hidden border border-cream/10 select-none ${
+          canZoom ? "cursor-none" : ""
+        }`}
+        style={card.imageUrl ? undefined : { background: card.tint }}
+      >
+        {card.imageUrl && card.origin === "onchain" ? (
+          // Renaiss 슬랩 렌더(440×440 정사각)에서 카드 창 부분만 확대해 보여준다
+          // (사진 속 PSA 라벨·크롬 케이스는 우리 라벨과 중복이라 크롭)
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={card.imageUrl}
             alt={card.name}
             draggable={false}
             className="w-[268%] max-w-none -ml-[84.5%] -mt-[68%]"
           />
-        </div>
-      ) : card.imageUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={card.imageUrl}
-          alt={card.name}
-          draggable={false}
-          className="w-full aspect-[5/7] rounded-[6px] object-cover border border-cream/10 select-none"
-        />
-      ) : (
-        <div
-          className="aspect-[5/7] rounded-[6px] overflow-hidden border border-cream/10 flex items-center justify-center"
-          style={{ background: card.tint }}
-        >
-          <Cards size={large ? 56 : 30} weight="duotone" className="text-cream/50" aria-hidden />
-        </div>
-      )}
+        ) : card.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={card.imageUrl}
+            alt={card.name}
+            draggable={false}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Cards size={large ? 56 : 30} weight="duotone" className="text-cream/50" aria-hidden />
+          </div>
+        )}
+
+        {/* 돋보기 렌즈 — 커서를 따라다니며 그 부분을 확대. overflow-hidden에 카드 가장자리에서 잘림 */}
+        {lens && card.imageUrl && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute z-20 rounded-full border-2 border-cream shadow-[0_6px_20px_rgba(0,0,0,0.55)]"
+            style={{
+              width: LOUPE,
+              height: LOUPE,
+              left: lens.x - LOUPE / 2,
+              top: lens.y - LOUPE / 2,
+              backgroundImage: `url(${card.imageUrl})`,
+              backgroundRepeat: "no-repeat",
+              backgroundSize: lens.bgSize,
+              backgroundPosition: lens.bgPos,
+            }}
+          />
+        )}
+      </div>
       {/* 케이스 사선 광택 */}
       <span
         aria-hidden
