@@ -34,6 +34,12 @@ export const ROOMS: Room[] = [
     renaissUser: "daf9438f-f00a-4f67-b17b-fcbf39559ed1",
     avatarUrl: "https://8nothtoc5ds7a0x3.public.blob.vercel-storage.com/avatars/34.jpg",
   },
+  {
+    id: "kikiundo",
+    ownerName: "kikiundo",
+    renaissUser: "4bd8ef5f-bc91-4b9a-a7f0-346dcd6a6018",
+    avatarUrl: "https://8nothtoc5ds7a0x3.public.blob.vercel-storage.com/avatars/13.jpg",
+  },
 ];
 
 /** 홈(내 방) = 레지스트리 첫 번째. 목 로그인은 이 방의 주인 기준. */
