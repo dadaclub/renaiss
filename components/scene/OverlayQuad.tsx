@@ -1,14 +1,30 @@
 "use client";
-import type { RefObject } from "react";
+import { useEffect, useState, type RefObject } from "react";
+import { DEFAULT_PHOTO_URL } from "@/lib/photos";
 import { quadMatrix3d, type Corners } from "@/lib/quad";
 import { useElementSize } from "@/lib/useElementSize";
 
 const BASE = 100; // 소스 사각형 기준 크기(px) — matrix3d가 corners로 투영
 
+function distance(a: [number, number], b: [number, number]) {
+  return Math.hypot(a[0] - b[0], a[1] - b[1]);
+}
+
+function projectedAspect(corners: Corners, sceneW: number, sceneH: number) {
+  const px = ([x, y]: [number, number]): [number, number] => [(x / 100) * sceneW, (y / 100) * sceneH];
+  const tl = px(corners.tl);
+  const tr = px(corners.tr);
+  const br = px(corners.br);
+  const bl = px(corners.bl);
+  const w = (distance(tl, tr) + distance(bl, br)) / 2;
+  const h = (distance(tl, bl) + distance(tr, br)) / 2;
+  return h > 0 ? w / h : 1;
+}
+
 /**
  * 방 배경 위에 얹는 오브젝트 사진(예: 액자 속 사진)을 네 꼭짓점(corners)에 맞춰 원근 배치.
  * 각 모서리를 독립적으로 지정하므로 위·아래 변 기울기가 다른 사다리꼴도 표현된다.
- * 이미지는 네 모서리에 꽉 차게(코너-투-코너) 채워진다.
+ * 이미지는 액자 비율 기준으로 contain 처리해 잘리지 않게 표시한다.
  */
 export function OverlayQuad({
   src,
@@ -25,8 +41,15 @@ export function OverlayQuad({
   hovered?: boolean;
 }) {
   const { width, height } = useElementSize(sceneRef);
+  const [imgSrc, setImgSrc] = useState(src);
+
+  useEffect(() => {
+    setImgSrc(src);
+  }, [src]);
+
   if (!width || !height) return null;
-  const matrix = quadMatrix3d(corners, width, height, BASE);
+  const sourceWidth = BASE * projectedAspect(corners, width, height);
+  const matrix = quadMatrix3d(corners, width, height, sourceWidth, BASE);
   return (
     <div
       aria-hidden
@@ -34,22 +57,23 @@ export function OverlayQuad({
         position: "absolute",
         left: 0,
         top: 0,
-        width: BASE,
+        width: sourceWidth,
         height: BASE,
         transformOrigin: "0 0",
         transform: matrix,
       }}
-      className={`pointer-events-none select-none ${className}`}
+      className={`pointer-events-none select-none overflow-hidden bg-cream ${className}`}
     >
       {/* 호버 시 중심 기준 5% 확대 — matrix로 프레임 원근에 맞춰 투영됨 */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={src}
+        src={imgSrc}
         alt=""
         draggable={false}
+        onError={() => setImgSrc(DEFAULT_PHOTO_URL)}
         className={`block w-full h-full select-none origin-center transition-transform duration-200 motion-reduce:transition-none ${
           hovered ? "scale-[1.05]" : "scale-100"
-        }`}
+        } object-contain`}
       />
     </div>
   );

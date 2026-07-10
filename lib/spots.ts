@@ -39,10 +39,8 @@ export const SPOTS: Spot[] = [
   { id: "computer", label: "Computer",     area: { left: 56,   top: 32.8, width: 15.7, height: 18.4 }, zoom: { cx: 0.58, cy: 0.30, scale: 2.4 }, popScale: 1.03 },
   // 컴퓨터 화면 quad(room_v5 측정) — 나중에 모니터에 사진 얹을 때 아래 overlay 주석을 살리고 src만 교체.
   // overlay: { src: "/picture_v1.jpg", corners: { tl: [56, 33.2], tr: [71.7, 32.8], br: [71.6, 51.2], bl: [56.2, 51.2] } }
-  // 액자: 클릭하면 PhotoScreen으로 확대(사진 경로는 PhotoScreen.tsx의 PHOTO_SRC).
-  // 프레임 속 오버레이 사진은 제거함 — 다시 넣으려면 아래 overlay 주석을 살리면 됨.
-  // overlay: { src: "/picture_v1_cdither_g2_l4.jpg", corners: { tl: [72.1, 11.4], tr: [88.6, 11.4], br: [88.9, 26], bl: [71.9, 25.9] } }
-  { id: "photo",    label: "Photo frame",  area: { left: 71.9, top: 11.4, width: 17,   height: 14.6 }, zoom: { cx: 0.83, cy: 0.13, scale: 2.3 } },
+  // 액자: 클릭하면 PhotoScreen으로 확대. src는 Scene에서 RoomContext의 room photo로 교체된다.
+  { id: "photo",    label: "Photo frame",  area: { left: 71.9, top: 11.4, width: 17,   height: 14.6 }, zoom: { cx: 0.83, cy: 0.13, scale: 2.3 }, overlay: { src: "/photos/sample-1.jpg", corners: { tl: [72.1, 11.4], tr: [88.6, 11.4], br: [88.9, 26], bl: [71.9, 25.9] } } },
   { id: "note",     label: "Guestbook",    area: { left: 18.6, top: 85.7, width: 17.6, height: 10.5 }, zoom: { cx: 0.16, cy: 0.80, scale: 2.5 } },
   { id: "phone",    label: "Phone",        area: { left: 63.7, top: 86,   width: 8.1,  height: 6.7 },  zoom: { cx: 0.68, cy: 0.89, scale: 2.2 } },
   { id: "album",    label: "Album",        area: { left: 75.6, top: 77.7, width: 13.9, height: 8.7 },  zoom: { cx: 0.79, cy: 0.80, scale: 2.2 } },
