@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { SPOTS, Spot, SpotId, ROOM_IMG_DARK, ROOM_IMG_BRIGHT } from "@/lib/spots";
 import { getRoom, HOME_ROOM_ID } from "@/lib/rooms";
@@ -12,7 +12,7 @@ import { LoginIntro } from "./LoginIntro";
 import { ObjectScreen } from "./ObjectScreen";
 import { OverlayEditor } from "./OverlayEditor";
 import { OverlayQuad } from "./OverlayQuad";
-import { RoomProvider } from "./RoomContext";
+import { RoomProvider, useRoom } from "./RoomContext";
 import { SnackHoverSound } from "./SnackHoverSound";
 import { SnackCrumble } from "./SnackCrumble";
 import { ArrowLeft } from "@phosphor-icons/react";
@@ -33,6 +33,28 @@ function RoomAvatar({ name, userId }: { name: string; userId?: string }) {
         <span className="text-amber font-bold text-[9px] sm:text-[11px] leading-none">{initial}</span>
       )}
     </span>
+  );
+}
+
+function PhotoFrameOverlay({
+  spot,
+  sceneRef,
+  hovered,
+}: {
+  spot: Spot;
+  sceneRef: RefObject<HTMLDivElement | null>;
+  hovered: boolean;
+}) {
+  const { photoUrl } = useRoom();
+  if (!spot.overlay) return null;
+  return (
+    <OverlayQuad
+      src={photoUrl}
+      corners={spot.overlay.corners}
+      sceneRef={sceneRef}
+      hovered={hovered}
+      className="shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
+    />
   );
 }
 
@@ -151,7 +173,7 @@ export function Scene() {
   useEscapeToClose(close, active !== null);
 
   return (
-    <RoomProvider value={{ room, isOwnRoom: !isVisiting, visitRoom }}>
+    <RoomProvider room={room} isOwnRoom={!isVisiting} visitRoom={visitRoom}>
     <main className="fixed inset-0 overflow-hidden flex items-center justify-center bg-room-ambient">
       {/* 프레임 = 방 이미지 정사각형. overflow-hidden으로 줌·오브젝트 화면을 이 안에 가둔다
           (정사각형 밖 검은 여백으론 절대 안 넘침). */}
@@ -178,8 +200,19 @@ export function Scene() {
         />
 
         {/* 방 아트 위에 얹는 오브젝트 사진 (예: 액자 속 사진). */}
-        {SPOTS.map((s) =>
-          s.overlay && !(edit && s.id === editSpotId) ? (
+        {SPOTS.map((s) => {
+          if (!s.overlay || (edit && s.id === editSpotId)) return null;
+          if (s.id === "photo") {
+            return (
+              <PhotoFrameOverlay
+                key={`overlay-${s.id}`}
+                spot={s}
+                sceneRef={sceneRef}
+                hovered={objectsReady && !active && hovered === s.id}
+              />
+            );
+          }
+          return (
             <OverlayQuad
               key={`overlay-${s.id}`}
               src={s.overlay.src}
@@ -188,8 +221,8 @@ export function Scene() {
               hovered={objectsReady && !active && hovered === s.id}
               className="shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
             />
-          ) : null
-        )}
+          );
+        })}
 
         {SPOTS.map((s) => {
           const isPhone = s.id === "phone";

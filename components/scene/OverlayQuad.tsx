@@ -1,5 +1,6 @@
 "use client";
-import type { RefObject } from "react";
+import { useEffect, useState, type RefObject } from "react";
+import { DEFAULT_PHOTO_URL } from "@/lib/photos";
 import { quadMatrix3d, type Corners } from "@/lib/quad";
 import { useElementSize } from "@/lib/useElementSize";
 
@@ -25,6 +26,12 @@ export function OverlayQuad({
   hovered?: boolean;
 }) {
   const { width, height } = useElementSize(sceneRef);
+  const [imgSrc, setImgSrc] = useState(src);
+
+  useEffect(() => {
+    setImgSrc(src);
+  }, [src]);
+
   if (!width || !height) return null;
   const matrix = quadMatrix3d(corners, width, height, BASE);
   return (
@@ -39,17 +46,18 @@ export function OverlayQuad({
         transformOrigin: "0 0",
         transform: matrix,
       }}
-      className={`pointer-events-none select-none ${className}`}
+      className={`pointer-events-none select-none overflow-hidden bg-cream ${className}`}
     >
       {/* 호버 시 중심 기준 5% 확대 — matrix로 프레임 원근에 맞춰 투영됨 */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={src}
+        src={imgSrc}
         alt=""
         draggable={false}
+        onError={() => setImgSrc(DEFAULT_PHOTO_URL)}
         className={`block w-full h-full select-none origin-center transition-transform duration-200 motion-reduce:transition-none ${
           hovered ? "scale-[1.05]" : "scale-100"
-        }`}
+        } object-contain`}
       />
     </div>
   );
