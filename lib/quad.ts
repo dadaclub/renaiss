@@ -65,9 +65,9 @@ function general2DProjection(
 
 /**
  * 씬(정사각) 대비 %로 지정한 네 꼭짓점으로 매핑하는 CSS matrix3d 문자열을 반환.
- * base×base 크기의 소스 사각형을 corners(px)로 투영한다.
+ * baseW×baseH 크기의 소스 사각형을 corners(px)로 투영한다.
  */
-export function quadMatrix3d(c: Corners, sceneW: number, sceneH: number, base = 100): string {
+export function quadMatrix3d(c: Corners, sceneW: number, sceneH: number, baseW = 100, baseH = baseW): string {
   const px = (p: Pt): Pt => [(p[0] / 100) * sceneW, (p[1] / 100) * sceneH];
   const tl = px(c.tl);
   const tr = px(c.tr);
@@ -76,9 +76,9 @@ export function quadMatrix3d(c: Corners, sceneW: number, sceneH: number, base = 
   // 소스 사각형 꼭짓점: TL(0,0) TR(base,0) BL(0,base) BR(base,base)
   const t = general2DProjection(
     0, 0, tl[0], tl[1],
-    base, 0, tr[0], tr[1],
-    0, base, bl[0], bl[1],
-    base, base, br[0], br[1]
+    baseW, 0, tr[0], tr[1],
+    0, baseH, bl[0], bl[1],
+    baseW, baseH, br[0], br[1]
   );
   for (let i = 0; i < 9; i++) t[i] = t[i] / t[8];
   const m = [

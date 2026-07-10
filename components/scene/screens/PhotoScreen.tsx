@@ -13,6 +13,12 @@ import { ImageSquare, UploadSimple } from "@phosphor-icons/react";
  */
 const LENS = 160; // 돋보기 지름(px)
 const ZOOM = 1.5; // 확대 배율
+const SAVE_ERROR = "Could not save the room photo.";
+const UPLOAD_ERROR = "Could not upload the image.";
+
+function errorMessage(prefix: string, error: { message?: string }) {
+  return error.message ? `${prefix} ${error.message}` : `${prefix} Please try again.`;
+}
 
 export function PhotoScreen({ onClose }: { onClose: () => void }) {
   const { room, isOwnRoom, photoUrl, setPhotoUrl } = useRoom();
@@ -35,7 +41,7 @@ export function PhotoScreen({ onClose }: { onClose: () => void }) {
 
     if (saveError) {
       console.error("Failed to save room photo", saveError);
-      setError("Could not save the room photo. Please try again.");
+      setError(errorMessage(SAVE_ERROR, saveError));
       return;
     }
 
@@ -70,7 +76,7 @@ export function PhotoScreen({ onClose }: { onClose: () => void }) {
     if (uploadError) {
       console.error("Failed to upload room photo", uploadError);
       setLoading(false);
-      setError("Could not upload the image. Please try again.");
+      setError(errorMessage(UPLOAD_ERROR, uploadError));
       return;
     }
 
