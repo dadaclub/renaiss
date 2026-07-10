@@ -1,5 +1,6 @@
 "use client";
 import { CSSProperties, useCallback, useEffect, useRef, useState } from "react";
+import { SpeakerHigh, SpeakerSlash } from "@phosphor-icons/react";
 import { ScreenShell } from "./ScreenShell";
 
 /**
@@ -40,6 +41,9 @@ const BGM_FADE_MS = 1200; // 게임 BGM 페이드인 시간
 // 5장을 넘기면 그 뒤로 스폰되는 카드는 card2(상위 카드)로 바뀐다.
 const CARD_SRC = "/game/card.png";
 const CARD2_SRC = "/game/card2.png";
+// 5장 실버 / 10장(+15장...) 골드 리워드 연출에서만 쓰는 큰 카드 이미지 — 게임 중 작은 카드 스프라이트(card/card2)와는 별개
+const CELEBRATION_SILVER_SRC = "/game/silvercard1.png";
+const CELEBRATION_GOLD_SRC = "/game/goldcard1.png";
 const CARD_WIDTH = 6;
 const CARD_HEIGHT = 13.4; // card.png(422x699) 비율에 맞춤
 const CARD_FLOAT_MIN = 4; // 땅(GROUND_Y) 기준 최소 높이(%) — 점프해야 닿음
@@ -78,8 +82,8 @@ const CLOUDS = [
 
 const wrap = (v: number, m: number) => ((v % m) + m) % m;
 
-// 골드 연출을 띄울 카드 개수 — 10개 단위(10, 20, 30...)마다, 그리고 15개에도 한 번 더
-const isGoldMilestone = (count: number) => count > 0 && (count % 10 === 0 || count === 15);
+// 골드 연출을 띄울 카드 개수 — 10개부터 5개마다 반복(10, 15, 20, 25...)
+const isGoldMilestone = (count: number) => count >= 10 && count % 5 === 0;
 
 // 5장 실버 / 10장(+15장, 이후 10개 단위) 골드 카드 리워드 연출 — 실버는 카드만, 골드는 타이틀 글자까지
 type Celebration = "silver" | "gold" | null;
@@ -141,6 +145,7 @@ export function ComputerScreen({ onClose }: { onClose: () => void }) {
   const [celebrationParticles, setCelebrationParticles] = useState<Particle[]>([]);
   const [runFrame, setRunFrame] = useState(0);
   const [startRunFrame, setStartRunFrame] = useState(0);
+  const [bgmMuted, setBgmMuted] = useState(false);
 
   // 매 프레임 바뀌는 값은 ref에 두고, 화면에 그릴 때만 state로 반영한다 (클로저가 오래된 값 참조하는 걸 방지)
   const playerYRef = useRef(0);
@@ -162,6 +167,8 @@ export function ComputerScreen({ onClose }: { onClose: () => void }) {
   const celebrationRef = useRef<Celebration>(null);
   const celebrationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const silverShownRef = useRef(false);
+  // 실버(+10)/골드(+30) 연출이 뜰 때마다 쌓이는 보너스 점수 — 기존 시간 기반 점수 위에 그대로 더해진다
+  const bonusScoreRef = useRef(0);
   const runFrameRef = useRef(0);
   const runFrameTimerRef = useRef(0);
   const jumpSoundRef = useRef<HTMLAudioElement | null>(null);
@@ -237,6 +244,11 @@ export function ComputerScreen({ onClose }: { onClose: () => void }) {
     };
   }, []);
 
+  // 음소거 버튼 상태를 실제 오디오에 반영 — 페이드 볼륨과 별개로 muted 플래그만 토글
+  useEffect(() => {
+    if (gameBgmRef.current) gameBgmRef.current.muted = bgmMuted;
+  }, [bgmMuted]);
+
   const jump = useCallback(() => {
     if (playerYRef.current !== 0) return;
     velocityRef.current = JUMP_VELOCITY;
@@ -276,6 +288,7 @@ export function ComputerScreen({ onClose }: { onClose: () => void }) {
     runFrameTimerRef.current = 0;
     cardsCollectedRef.current = 0;
     silverShownRef.current = false;
+    bonusScoreRef.current = 0;
     celebrationRef.current = null;
     if (celebrationTimerRef.current) clearTimeout(celebrationTimerRef.current);
     gameOverSoundRef.current?.pause();
@@ -408,12 +421,14 @@ export function ComputerScreen({ onClose }: { onClose: () => void }) {
       if (eaten > 0) {
         cardsCollectedRef.current += eaten;
         setCardsCollected(cardsCollectedRef.current);
-        // 실버(5장)는 첫 도달 때 한 번만. 골드(10장)는 10개 단위로 모을 때마다(10, 20, 30...) + 15장에도 반복해서 나온다.
+        // 실버(5장)는 첫 도달 때 한 번만(+100점). 골드(10장부터 5개마다 반복)는 매번(+200점).
         if (cardsCollectedRef.current >= 5 && !silverShownRef.current) {
           silverShownRef.current = true;
+          bonusScoreRef.current += 100;
           triggerCelebration("silver");
         }
         if (isGoldMilestone(cardsCollectedRef.current)) {
+          bonusScoreRef.current += 200;
           triggerCelebration("gold");
         }
       }
@@ -424,7 +439,8 @@ export function ComputerScreen({ onClose }: { onClose: () => void }) {
       setCards(nextCards);
       setCloudOffset(cloudOffsetRef.current);
       setWorldDistance(worldDistanceRef.current);
-      const currentScore = Math.floor(elapsedRef.current * 10);
+      // 기존 시간 기반 점수 위에 실버/골드 마일스톤 보너스를 그대로 더한다
+      const currentScore = Math.floor(elapsedRef.current * 10) + bonusScoreRef.current;
       setScore(currentScore);
 
       if (collided || timeLeftRef.current <= 0) {
@@ -449,7 +465,7 @@ export function ComputerScreen({ onClose }: { onClose: () => void }) {
       <div
         onClick={handleInput}
         style={{ backgroundImage: "url(/game/background.png)" }}
-        className="relative w-[min(92vw,900px)] aspect-[1456/1080] rounded-2xl border-2 border-glassline overflow-hidden bg-inkdark bg-cover bg-center cursor-pointer select-none"
+        className="relative w-[min(92vw,640px)] aspect-[1456/1080] rounded-2xl border-2 border-glassline overflow-hidden bg-inkdark bg-cover bg-center cursor-pointer select-none"
       >
         {/* 배경 구름 — 땅보다 느리게 흘러가는 패럴랙스, 끝까지 가면 반대편에서 다시 나타난다(루프) */}
         {CLOUDS.map((c, i) => (
@@ -466,6 +482,23 @@ export function ComputerScreen({ onClose }: { onClose: () => void }) {
             className="absolute bg-contain bg-no-repeat bg-center"
           />
         ))}
+
+        {/* 게임 BGM 음소거 토글 — 클릭이 점프/시작 입력으로 새지 않게 stopPropagation */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setBgmMuted((m) => !m);
+          }}
+          aria-label={bgmMuted ? "Unmute game music" : "Mute game music"}
+          className="absolute right-3 bottom-3 z-30 grid h-8 w-8 place-items-center rounded-full bg-glass border border-glassline text-creamdim hover:text-cream transition-colors"
+        >
+          {bgmMuted ? (
+            <SpeakerSlash className="w-4 h-4" weight="bold" aria-hidden />
+          ) : (
+            <SpeakerHigh className="w-4 h-4" weight="bold" aria-hidden />
+          )}
+        </button>
 
         {/* 점수 + 남은 시간 */}
         <div className="absolute top-3 right-4 text-cream font-mono text-sm tabular-nums drop-shadow text-right">
@@ -640,69 +673,16 @@ export function ComputerScreen({ onClose }: { onClose: () => void }) {
                 }`}
               />
 
-              {/* 아치형 타이틀 — 카드와 겹치지 않게 위에 별도로 쌓는다 */}
-              <svg
-                viewBox="0 0 200 55"
-                className="relative w-[46vw] max-w-[240px] overflow-visible animate-card-pop"
+              {/* 카드 — 프레임 없이 이미지 자체만. 실버/골드 전용 큰 카드 아트(실제 비율에 맞춘 aspect) */}
+              <div
+                className={`relative w-[34vw] max-w-[210px] animate-card-pop ${
+                  celebration === "gold" ? "aspect-[586/789]" : "aspect-[592/775]"
+                }`}
               >
-                <defs>
-                  <path id={`reward-arc-${celebration}`} d="M 8 50 Q 100 -14 192 50" fill="none" />
-                  <linearGradient id="reward-grad-silver" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#FFFFFF" />
-                    <stop offset="45%" stopColor="#D7DEE9" />
-                    <stop offset="100%" stopColor="#94A3B8" />
-                  </linearGradient>
-                  <linearGradient id="reward-grad-gold" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#FFF6D6" />
-                    <stop offset="45%" stopColor="#FFD54A" />
-                    <stop offset="100%" stopColor="#E8960A" />
-                  </linearGradient>
-                </defs>
-                <text
-                  fontSize="24"
-                  fontWeight={900}
-                  textAnchor="middle"
-                  stroke={celebration === "gold" ? "#7A4A00" : "#334155"}
-                  strokeWidth={1.5}
-                  fill={`url(#reward-grad-${celebration})`}
-                  style={{
-                    filter:
-                      celebration === "gold"
-                        ? "drop-shadow(0 0 5px rgba(255,193,7,0.9)) drop-shadow(0 0 11px rgba(255,193,7,0.55))"
-                        : "drop-shadow(0 0 5px rgba(255,255,255,0.9)) drop-shadow(0 0 11px rgba(148,163,184,0.55))",
-                  }}
-                >
-                  <textPath href={`#reward-arc-${celebration}`} startOffset="50%" textAnchor="middle">
-                    {celebration === "gold" ? "GOLD CARD" : "SILVER CARD"}
-                  </textPath>
-                </text>
-              </svg>
-
-              {/* 톱니(왕관) 장식 라인 — 타이틀과 카드 사이 */}
-              <svg
-                viewBox="0 0 120 16"
-                className="relative w-[26vw] max-w-[130px] animate-card-pop"
-                style={{
-                  filter:
-                    celebration === "gold"
-                      ? "drop-shadow(0 0 4px rgba(255,193,7,0.7))"
-                      : "drop-shadow(0 0 4px rgba(200,210,225,0.7))",
-                }}
-              >
-                <polyline
-                  points="0,16 10,2 20,16 30,2 40,16 50,2 60,16 70,2 80,16 90,2 100,16 110,2 120,16"
-                  fill="none"
-                  stroke={celebration === "gold" ? "#FFD54A" : "#CBD5E1"}
-                  strokeWidth={3}
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
-                />
-              </svg>
-
-              {/* 카드 — 프레임 없이 이미지 자체만, 기존보다 작게 */}
-              <div className="relative w-[20vw] max-w-[125px] aspect-[422/699] animate-card-pop">
                 <div
-                  style={{ backgroundImage: `url(${celebration === "gold" ? CARD2_SRC : CARD_SRC})` }}
+                  style={{
+                    backgroundImage: `url(${celebration === "gold" ? CELEBRATION_GOLD_SRC : CELEBRATION_SILVER_SRC})`,
+                  }}
                   className="absolute inset-0 bg-contain bg-no-repeat bg-center"
                 />
               </div>
