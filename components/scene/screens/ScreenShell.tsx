@@ -2,6 +2,7 @@
 import { ReactNode } from "react";
 import { ArrowLeft } from "@phosphor-icons/react";
 import { ROOM_IMG } from "@/lib/spots";
+import { ViewportScale } from "@/components/ui/ViewportScale";
 
 /**
  * 오브젝트 화면 공통 뼈대 (뒤로가기 버튼 + 콘텐츠 슬롯).
@@ -44,8 +45,10 @@ export function ScreenShell({
         <ArrowLeft size={14} weight="bold" aria-hidden />
         Back to room
       </button>
-      <div className="relative flex-1 flex flex-col items-center justify-center gap-5 px-6">
-        {children}
+      <div className="relative flex-1 min-h-0">
+        <ViewportScale className="px-4 py-6 pt-20 sm:px-6">
+          {children}
+        </ViewportScale>
       </div>
     </div>
   );

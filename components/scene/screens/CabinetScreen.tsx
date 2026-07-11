@@ -20,6 +20,7 @@ import {
 import { ROOM_IMG } from "@/lib/spots";
 import { APITCG_GAMES } from "@/lib/api/apitcgGames";
 import { Chip } from "@/components/ui/Chip";
+import { ViewportScale } from "@/components/ui/ViewportScale";
 import { fmtUsd } from "@/lib/mockCards";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 import { supabase } from "@/lib/supabase";
@@ -855,16 +856,17 @@ function RegisterModal({
     "w-full bg-cream/[0.05] border border-glassline rounded-xl px-3.5 py-2.5 text-[13px] text-cream placeholder:text-creamdim/60 outline-none focus:border-amber transition-colors";
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-bg/70 backdrop-blur-sm" onClick={onClose}>
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={editing ? "Edit card" : "Add a card"}
-        tabIndex={-1}
-        className="w-[min(92vw,420px)] max-h-[90dvh] overflow-y-auto bg-glass border border-glassline rounded-panel p-6 flex flex-col gap-4 outline-none focus-visible:ring-2 focus-visible:ring-amber/60"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-[60] bg-bg/70 backdrop-blur-sm" onClick={onClose}>
+      <ViewportScale className="p-4">
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={editing ? "Edit card" : "Add a card"}
+          tabIndex={-1}
+          className="w-[min(92vw,420px)] bg-glass border border-glassline rounded-panel p-6 flex flex-col gap-4 outline-none focus-visible:ring-2 focus-visible:ring-amber/60"
+          onClick={(e) => e.stopPropagation()}
+        >
         <h3 className="text-cream font-bold text-lg">{editing ? "Edit card" : "Add a card"}</h3>
         {!editing && (
           <div className="flex gap-2">
@@ -1046,7 +1048,8 @@ function RegisterModal({
             )}
           </div>
         )}
-      </div>
+        </div>
+      </ViewportScale>
     </div>
   );
 }
@@ -1157,16 +1160,17 @@ function CardDetail({
   const editable = !readOnly && (card.origin === "physical" || card.fromDb);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-bg/70 backdrop-blur-sm" onClick={onClose}>
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={`${card.name} details`}
-        tabIndex={-1}
-        className="relative w-[min(92vw,400px)] bg-glass border border-glassline rounded-panel p-6 flex flex-col items-center gap-4 outline-none focus-visible:ring-2 focus-visible:ring-amber/60"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-[60] bg-bg/70 backdrop-blur-sm" onClick={onClose}>
+      <ViewportScale className="p-4">
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${card.name} details`}
+          tabIndex={-1}
+          className="relative w-[min(92vw,400px)] bg-glass border border-glassline rounded-panel p-6 flex flex-col items-center gap-4 outline-none focus-visible:ring-2 focus-visible:ring-amber/60"
+          onClick={(e) => e.stopPropagation()}
+        >
         {/* 좌우 이동 — 카드 양옆(패널 안쪽 여백)에 붙여 카드 뷰어의 일부처럼. 끝이면 흐리게 비활성 */}
         <button
           onClick={(e) => { e.stopPropagation(); onPrev(); }}
@@ -1253,7 +1257,8 @@ function CardDetail({
           </div>
         )}
 
-      </div>
+        </div>
+      </ViewportScale>
     </div>
   );
 }

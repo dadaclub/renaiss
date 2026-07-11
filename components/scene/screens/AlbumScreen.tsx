@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { CaretLeft, CaretRight, Warning, X } from "@phosphor-icons/react";
 import { ScreenShell } from "./ScreenShell";
 import { useRoom } from "../RoomContext";
+import { ViewportScale } from "@/components/ui/ViewportScale";
 
 /**
  * 앨범 — 띠부실(포켓몬 스티커) "COLLECT BOOK" 컨셉의 SBT 컬렉션북.
@@ -83,10 +84,12 @@ export function AlbumScreen({ onClose }: { onClose: () => void }) {
   }, [room.renaissUser]);
 
   return (
-    <ScreenShell title="Collect Book" onClose={onClose}>
-      <StickerBinder sbts={sbts} fallback={fallback} onPick={setPicked} />
+    <>
+      <ScreenShell title="Collect Book" onClose={onClose}>
+        <StickerBinder sbts={sbts} fallback={fallback} onPick={setPicked} />
+      </ScreenShell>
       {picked && <StickerDetail picked={picked} onClose={() => setPicked(null)} />}
-    </ScreenShell>
+    </>
   );
 }
 
@@ -252,8 +255,9 @@ function StickerDetail({ picked, onClose }: { picked: Picked; onClose: () => voi
       aria-modal="true"
       aria-label={`${sbt.title} details`}
       onClick={onClose}
-      className="fixed inset-0 z-[60] flex items-center justify-center p-6 backdrop-blur-md"
+      className="fixed inset-0 z-[60] backdrop-blur-md"
     >
+      <ViewportScale className="p-6">
       <div
         onClick={(e) => e.stopPropagation()}
         className="relative w-[min(84vw,300px)] rounded-[20px] bg-white p-5 shadow-[0_30px_80px_rgba(0,0,0,0.6)] animate-[popIn_200ms_ease-out]"
@@ -293,6 +297,7 @@ function StickerDetail({ picked, onClose }: { picked: Picked; onClose: () => voi
           )}
         </div>
       </div>
+      </ViewportScale>
     </div>
   );
 }
