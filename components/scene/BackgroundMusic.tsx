@@ -39,7 +39,8 @@ export function BackgroundMusic({ active }: { active: boolean }) {
       });
       const start = performance.now();
       let raf = requestAnimationFrame(function fade(now) {
-        const t = Math.min((now - start) / FADE_IN_MS, 1);
+        // rAF 첫 콜백의 now가 start보다 미세하게 이를 수 있어(브라우저 타이밍 오차) 0 밑으로 안 내려가게 clamp
+        const t = Math.max(0, Math.min((now - start) / FADE_IN_MS, 1));
         audio.volume = t * TARGET_VOLUME;
         if (t < 1) raf = requestAnimationFrame(fade);
       });
