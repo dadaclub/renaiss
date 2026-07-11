@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CheckCircle, LockSimple } from "@phosphor-icons/react";
 import { ROOM_IMG_DARK } from "@/lib/spots";
 
@@ -7,15 +7,25 @@ import { ROOM_IMG_DARK } from "@/lib/spots";
  * 로그인 — 방 안 핸드폰에 줌인된 뒤 그 위로 뜬다.
  * 르네시스 아이디/비번을 따로 만드는 게 아니라, 구글·네이버 연동처럼
  * "이미 있는 르네시스 계정을 연결"하는 소셜 로그인 형태(겉모습만, 실제 연동 아님 — 목).
- * 단계 축약: 열면 바로 연동 동의(Authorize) → 승인하면 연결 연출 후 onLogin().
+ * 단계: 열면 르네 사이트로 잠깐 이동하는 척(redirect) → 돌아와 연동 동의(Authorize)
+ *       → 승인하면 연결 연출(connecting) 후 onLogin(). 실제 OAuth/지갑 연동은 없음(목).
  */
-type Step = "consent" | "connecting";
+type Step = "redirect" | "consent" | "connecting";
+
+// 목 OAuth 리다이렉트에 표시할 르네 인증 도메인 (실제 이동 없음 — 화면 연출용 표기)
+const RENAISS_AUTH_URL = "renaiss.xyz/authorize";
 
 // 연동된 것처럼 보이게 하는 목 계정 표기 (실데이터 아님). 로그아웃 화면과 공유.
 export const MOCK_ACCOUNT = "0x7F3a…9c2B";
 
 export function LoginIntro({ onLogin, onCancel }: { onLogin: () => void; onCancel: () => void }) {
-  const [step, setStep] = useState<Step>("consent");
+  const [step, setStep] = useState<Step>("redirect");
+
+  // 폰 클릭 → 르네 사이트로 잠깐 이동(목)했다가 돌아와 연동 동의 화면을 띄운다
+  useEffect(() => {
+    const t = setTimeout(() => setStep("consent"), 1500);
+    return () => clearTimeout(t);
+  }, []);
 
   const authorize = () => {
     setStep("connecting");
@@ -58,9 +68,21 @@ export function LoginIntro({ onLogin, onCancel }: { onLogin: () => void; onCance
           </div>
           <div className="text-[10px] tracking-[0.32em] text-amber font-bold uppercase">Renaiss</div>
           <div className="text-cream font-serif text-2xl mt-1">
-            {step === "connecting" ? "Log in" : "Authorize"}
+            {step === "connecting" ? "Log in" : step === "redirect" ? "Renaiss" : "Authorize"}
           </div>
         </div>
+
+        {/* 르네 사이트로 이동하는 척 — 목 브라우저 주소창 + 로딩. 잠시 뒤 consent로 자동 전환 */}
+        {step === "redirect" && (
+          <div className="flex flex-col items-center gap-4 py-2">
+            <div className="w-full flex items-center gap-2 bg-cream/[0.06] border border-glassline rounded-lg px-3 py-2">
+              <LockSimple size={12} weight="fill" className="shrink-0 text-amber" aria-hidden />
+              <span className="text-[11px] font-mono text-creamdim truncate">{RENAISS_AUTH_URL}</span>
+            </div>
+            <span className="w-8 h-8 rounded-full border-2 border-amber/30 border-t-amber animate-spin motion-reduce:animate-none" />
+            <p className="text-xs text-creamdim text-center">Opening Renaiss to connect…</p>
+          </div>
+        )}
 
         {/* 연동 동의(목 OAuth 화면) */}
         {step === "consent" && (

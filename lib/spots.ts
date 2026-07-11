@@ -1,10 +1,19 @@
-/** 핫스팟 좌표 설정 — 이미지(room_dark/bright.jpg, 16:9 가로형) 기준 %. 좌표 수정은 이 파일에서만. */
+/** 핫스팟 좌표 설정 — 이미지(room_dark/bright_v3.png, 16:9 가로형) 기준 %. 좌표 수정은 이 파일에서만. */
 import type { Corners } from "./quad";
 
-export type SpotId = "cabinet" | "computer" | "phone" | "photo" | "album" | "note" | "figure" | "snack";
-
-/** 르네시스 트위터(X) — 피규어 클릭 시 이동 */
-export const RENE_TWITTER_URL = "https://x.com/renaissxyz";
+export type SpotId =
+  | "cabinet"
+  | "computer"
+  | "phone"
+  | "photo"
+  | "album"
+  | "note"
+  | "figure"
+  | "figure2"
+  | "figure3"
+  | "figure4"
+  | "figure5"
+  | "snack";
 
 export interface Spot {
   id: SpotId;
@@ -35,24 +44,28 @@ export interface Spot {
 // 코너 4점의 바운딩 박스(축정렬 사각형)로 area를 잡았다. (figure만 아직 미측정 — placeholder)
 // 클릭 시 새 화면(ObjectScreen)이 뜨므로 좌표는 클릭 영역용.
 export const SPOTS: Spot[] = [
-  { id: "cabinet",  label: "Card storage", area: { left: 3.9,  top: 4.8,  width: 36.1, height: 62.1 }, zoom: { cx: 0.14, cy: 0.29, scale: 2.2 }, popScale: 1.03 },
-  { id: "computer", label: "Computer",     area: { left: 56,   top: 32.8, width: 15.7, height: 18.4 }, zoom: { cx: 0.58, cy: 0.30, scale: 2.4 }, popScale: 1.03 },
+  { id: "cabinet",  label: "Card storage", area: { left: 4.4,  top: 4.5,  width: 36.1, height: 62.1 }, zoom: { cx: 0.14, cy: 0.29, scale: 2.2 }, popScale: 1.03 },
+  { id: "computer", label: "Computer",     area: { left: 58.1, top: 31.7, width: 15.7, height: 18.4 }, zoom: { cx: 0.58, cy: 0.30, scale: 2.4 }, popScale: 1.03 },
   // 컴퓨터 화면 quad(room_v5 측정) — 나중에 모니터에 사진 얹을 때 아래 overlay 주석을 살리고 src만 교체.
   // overlay: { src: "/picture_v1.jpg", corners: { tl: [56, 33.2], tr: [71.7, 32.8], br: [71.6, 51.2], bl: [56.2, 51.2] } }
   // 액자: 클릭하면 PhotoScreen으로 확대(사진 경로는 PhotoScreen.tsx의 PHOTO_SRC).
   // 프레임 속 오버레이 사진은 제거함 — 다시 넣으려면 아래 overlay 주석을 살리면 됨.
   // overlay: { src: "/picture_v1_cdither_g2_l4.jpg", corners: { tl: [72.1, 11.4], tr: [88.6, 11.4], br: [88.9, 26], bl: [71.9, 25.9] } }
-  { id: "photo",    label: "Photo frame",  area: { left: 71.9, top: 11.4, width: 17,   height: 14.6 }, zoom: { cx: 0.83, cy: 0.13, scale: 2.3 } },
+  { id: "photo",    label: "Photo frame",  area: { left: 72.8, top: 8.6,  width: 21,   height: 17.6 }, zoom: { cx: 0.83, cy: 0.13, scale: 2.3 } },
   { id: "note",     label: "Guestbook",    area: { left: 18.6, top: 85.7, width: 17.6, height: 10.5 }, zoom: { cx: 0.16, cy: 0.80, scale: 2.5 } },
-  { id: "phone",    label: "Phone",        area: { left: 63.7, top: 86,   width: 8.1,  height: 6.7 },  zoom: { cx: 0.68, cy: 0.89, scale: 2.2 } },
-  { id: "album",    label: "Album",        area: { left: 75.6, top: 77.7, width: 13.9, height: 8.7 },  zoom: { cx: 0.79, cy: 0.80, scale: 2.2 } },
+  { id: "phone",    label: "Phone",        area: { left: 65,   top: 87.7, width: 8.1,  height: 6.7 },  zoom: { cx: 0.68, cy: 0.89, scale: 2.2 } },
+  { id: "album",    label: "Album",        area: { left: 77,   top: 77.7, width: 13.9, height: 8.7 },  zoom: { cx: 0.79, cy: 0.80, scale: 2.2 } },
   // 바닥 과자봉지 — 화면 없음. 호버 시 과자 먹는 소리만(클릭 연출 없음).
-  { id: "snack",    label: "Snack",        area: { left: 42.2, top: 86.7, width: 7.9,  height: 8 },    zoom: { cx: 0.46, cy: 0.90, scale: 2.2 } },
-  // 책상 위 피규어(가장 왼쪽) → 르네 트위터(외부 링크). 얇고 세로로 길다. zoom 미사용(href 스팟).
-  { id: "figure",   label: "Rene on X",    area: { left: 73.5, top: 42.5, width: 3.8,  height: 12.7 }, zoom: { cx: 0.88, cy: 0.30, scale: 2.5 }, href: RENE_TWITTER_URL },
+  { id: "snack",    label: "Snack",        area: { left: 41.9, top: 88.5, width: 7.9,  height: 8 },    zoom: { cx: 0.46, cy: 0.90, scale: 2.2 } },
+  // 책상 위 피규어 5개 → 각자 외부 사이트로 이동(href 스팟, 화면 없음·zoom 미사용). 왼→오 순.
+  { id: "figure",   label: "Renaiss",         area: { left: 76.2, top: 41.4, width: 3.8,  height: 12.7 }, zoom: { cx: 0.88, cy: 0.30, scale: 2.5 }, href: "https://www.renaiss.xyz/" },
+  { id: "figure2",  label: "@Plus_Ultra_715", area: { left: 81.2, top: 41.3, width: 3.8,  height: 12.7 }, zoom: { cx: 0.88, cy: 0.30, scale: 2.5 }, href: "https://x.com/Plus_Ultra_715" },
+  { id: "figure3",  label: "Renaiss Discord", area: { left: 85.8, top: 41.3, width: 3.8,  height: 12.7 }, zoom: { cx: 0.88, cy: 0.30, scale: 2.5 }, href: "https://discord.com/invite/renaiss" },
+  { id: "figure4",  label: "@Renaiss_cmty",   area: { left: 90.2, top: 41.4, width: 3.8,  height: 12.7 }, zoom: { cx: 0.88, cy: 0.30, scale: 2.5 }, href: "https://x.com/Renaiss_cmty" },
+  { id: "figure5",  label: "@vinciwld",       area: { left: 94.2, top: 42.2, width: 3.8,  height: 12.7 }, zoom: { cx: 0.88, cy: 0.30, scale: 2.5 }, href: "https://x.com/vinciwld" },
 ];
 
-export const IMG_ASPECT = 1280 / 714; // room_dark_v1 / room_bright_v1 (16:9 가로형)
+export const IMG_ASPECT = 1672 / 941; // room_dark_v3 / room_bright_v3 (16:9 가로형)
 
 /**
  * 로그인 전, 어둠 속에서 켜진 핸드폰 화면 불빛의 네 꼭짓점 (방 이미지 대비 %).
@@ -65,7 +78,7 @@ export const PHONE_GLOW: { corners: Corners } = {
 
 /** 방 씬 이미지 — 상태별 두 버전(크기·위치 동일, 색만 다름).
  *  입장 전=어두운 방(room_dark), 입장/로그인/방문 후=밝은 방(room_bright). Scene이 크로스페이드로 스위치. */
-export const ROOM_IMG_DARK = "/room_dark_v1.jpg";
-export const ROOM_IMG_BRIGHT = "/room_bright_v1.jpg";
+export const ROOM_IMG_DARK = "/room_dark_v3.png";
+export const ROOM_IMG_BRIGHT = "/room_bright_v3.png";
 /** 기본(밝은) 이미지 — Hotspot 호버 복제·LoginIntro·오브젝트 화면 배경 등 로그인 후 컨텍스트가 공유. */
 export const ROOM_IMG = ROOM_IMG_BRIGHT;
