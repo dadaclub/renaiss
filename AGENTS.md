@@ -43,5 +43,5 @@
 
 **하지 말 것**
 - 실제 지갑 연결/서명/거래 구현 금지 (로그인은 목, read-only). SBT 발급·가챠 실행 등 Renaiss 영역 불침범.
-- localStorage 의존 금지 (방명록은 Upstash Redis/Neon 원격 저장소).
+- localStorage 의존 금지 (방명록은 Supabase 원격 저장소).
 - API 키를 커밋하지 말 것 — 전부 `.env.local` (`.env.example` 참고).
