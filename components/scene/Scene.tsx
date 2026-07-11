@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { SPOTS, Spot, SpotId, ROOM_IMG_DARK, ROOM_IMG_BRIGHT } from "@/lib/spots";
+import { SPOTS, Spot, SpotId, ROOM_IMG_DARK, ROOM_IMG_BRIGHT, ROOM_IMG_NIGHT } from "@/lib/spots";
 import { getRoom, HOME_ROOM_ID } from "@/lib/rooms";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 import { useAvatar } from "@/lib/useAvatar";
@@ -73,10 +73,24 @@ export function Scene() {
 
   const room = getRoom(roomId);
   const isVisiting = roomId !== HOME_ROOM_ID;
-  // 방문 중엔 스플래시/로그인 없이 바로 밝은 방 + 오브젝트 열람(읽기 전용)
-  // 방은 로그인 성공(loggedIn) 후에 밝아진다 — 그 전(입장~폰 울림~로그인 화면)엔 room_dark,
-  // 성공 시 room_bright로 크로스페이드. 로그아웃하면 다시 어두워지고, 로그인 성공은 그 반대(대칭 페이드).
-  const roomBright = loggedIn || isVisiting;
+
+  // 시간대 낮/밤 — 06:00~17:59 낮(밝은 방), 그 외(18시~새벽 6시) 밤(어두운 방). 사용자 기기 로컬 시각.
+  // SSR 하이드레이션 안전: 서버 렌더는 낮(기본)으로 두고, 마운트 후 실제 시각 반영 + 매 분 갱신해 6시 경계에서 자동 전환.
+  const [isDay, setIsDay] = useState(true);
+  useEffect(() => {
+    const update = () => {
+      const h = new Date().getHours();
+      setIsDay(h >= 6 && h < 18);
+    };
+    update();
+    const id = window.setInterval(update, 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  // 방문 중엔 스플래시/로그인 없이 바로 방 활성(읽기 전용). 로그인/방문 후 방이 "활성"되며,
+  // 그 전(입장~폰 울림~로그인 화면)엔 main.png 고정. 활성 후엔 시간대별 낮(bright)/밤(dark)으로 크로스페이드.
+  // 밤에도 objectsReady는 유지 — 배경만 어둡고 오브젝트 기능은 그대로.
+  const roomActive = loggedIn || isVisiting;
   const objectsReady = loggedIn || isVisiting;
 
   // URL ?room= 를 상태에 반영 (마운트 + 뒤로가기)
@@ -158,10 +172,12 @@ export function Scene() {
         style={{ transform, transitionProperty: "transform", transitionDuration: "0.85s" }}
         className="absolute inset-0 ease-camera"
       >
-        {/* 방 배경 — 두 버전 크로스페이드. 어두운 방을 베이스로 깔고, 밝아지면(roomBright) 밝은 방을 페이드인.
-            둘 다 항상 DOM에 있어 프리로드됨 → 전환 시 로딩 깜빡임 없음. */}
+        {/* 방 배경 — 세 버전 크로스페이드. 베이스=로그인 전 화면(main.png, 시간 무관 고정).
+            로그인/방문 후(roomActive) 시간대별로 낮(bright)/밤(night)을 그 위에 페이드인.
+            셋 다 항상 DOM에 있어 프리로드됨 → 전환 시 로딩 깜빡임 없음. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={ROOM_IMG_DARK} alt="My room" className="absolute inset-0 w-full h-full select-none" draggable={false} />
+        {/* 로그인 후 낮 화면 */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={ROOM_IMG_BRIGHT}
@@ -169,7 +185,18 @@ export function Scene() {
           aria-hidden
           draggable={false}
           className={`absolute inset-0 w-full h-full select-none transition-opacity duration-[900ms] ${
-            roomBright ? "opacity-100" : "opacity-0"
+            roomActive && isDay ? "opacity-100" : "opacity-0"
+          }`}
+        />
+        {/* 로그인 후 밤 화면 */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={ROOM_IMG_NIGHT}
+          alt=""
+          aria-hidden
+          draggable={false}
+          className={`absolute inset-0 w-full h-full select-none transition-opacity duration-[900ms] ${
+            roomActive && !isDay ? "opacity-100" : "opacity-0"
           }`}
         />
 
@@ -200,6 +227,8 @@ export function Scene() {
               disabled={!enabled}
               // 호버 효과(팝·호버 글로우)는 로그인 후에만 — 밝은 방이라도 로그인 전 폰엔 호버 글로우를 안 얹는다
               pop={objectsReady && !s.overlay}
+              // 밤(어두운 방)이면 호버 글로우를 은은한 주황빛 + 복제본 약하게 (밝은 사각형 티 제거)
+              night={!isDay}
               // 폰 진동 유도 — 내 방 로그인 전에만
               ring={isPhone && entered && !loggedIn && !active && !isVisiting}
               onHover={(sp, h) => setHovered(h ? sp.id : (cur) => (cur === sp.id ? null : cur))}
