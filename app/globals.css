@@ -32,12 +32,12 @@ button:enabled,
    시작은 방 밝아짐(0.9s)이 끝난 뒤 1.2s 지연. */
 @keyframes ring-shake {
   0%, 45%, 100% { transform: rotate(0deg); }
-  6% { transform: rotate(-4deg); }
-  13% { transform: rotate(4deg); }
-  20% { transform: rotate(-3deg); }
-  27% { transform: rotate(3deg); }
-  34% { transform: rotate(-2deg); }
-  40% { transform: rotate(1.5deg); }
+  6% { transform: rotate(-2.4deg); }
+  13% { transform: rotate(2.4deg); }
+  20% { transform: rotate(-1.8deg); }
+  27% { transform: rotate(1.8deg); }
+  34% { transform: rotate(-1.2deg); }
+  40% { transform: rotate(0.9deg); }
 }
 .animate-ring {
   /* 클론은 밝은 원본 이미지 조각이라, 방이 밝아지기 전에 보이면 밝은 네모로 뜬다.
@@ -52,6 +52,23 @@ button:enabled,
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+/* 울리는 폰 글로우 — 호버 시 밝아지는 그 밝기를 울리는 동안 상시로 얹는다(밤 방에서 변화가 없으면
+   어색하므로). fade-in(opacity)로 은은히 등장 + 버즈 타이밍에 살짝 커졌다 작아져 "울림"을 강조.
+   opacity는 fade-in이, scale은 ring-flare가 담당해 서로 안 부딪힘. */
+@keyframes ring-glow {
+  0%   { opacity: 0.4;  transform: scale(1); }     /* 벨 조용 = 은은한 기본 밝기(0으로 안 꺼짐) */
+  8%   { opacity: 1;    transform: scale(1.16); }  /* 버즈 시작 = 확 밝고 커짐 */
+  40%  { opacity: 0.92; transform: scale(1.08); }  /* 버즈 지속 */
+  58%  { opacity: 0.4;  transform: scale(1); }     /* 조용해지면 기본 밝기로 부드럽게 복귀 */
+  100% { opacity: 0.4;  transform: scale(1); }
+}
+.animate-ring-glow {
+  /* 소리(useRingSound)·흔들림(ring-shake)의 buzz 구간(≈0–40%)에만 밝게, 조용해지는 45%부터 확 꺼진다.
+     opacity=밝기, scale=크기를 한 애니메이션에서 같이 처리(fade-in과 안 부딪히게 단일 애니메이션). */
+  animation: ring-glow 2.2s ease-in-out 1.2s infinite both;
+  transform-origin: 50% 88%;
 }
 
 /* 진입 스플래시 — "화면을 탭해서 입장" 안내가 은은히 숨쉬며 탭을 유도한다. */

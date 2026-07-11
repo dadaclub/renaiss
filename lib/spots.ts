@@ -53,7 +53,10 @@ export const SPOTS: Spot[] = [
   // overlay: { src: "/picture_v1_cdither_g2_l4.jpg", corners: { tl: [72.1, 11.4], tr: [88.6, 11.4], br: [88.9, 26], bl: [71.9, 25.9] } }
   { id: "photo",    label: "Photo frame",  area: { left: 72.8, top: 8.6,  width: 21,   height: 17.6 }, zoom: { cx: 0.83, cy: 0.13, scale: 2.3 } },
   { id: "note",     label: "Guestbook",    area: { left: 18.6, top: 85.7, width: 17.6, height: 10.5 }, zoom: { cx: 0.16, cy: 0.80, scale: 2.5 } },
-  { id: "phone",    label: "Phone",        area: { left: 65,   top: 87.7, width: 8.1,  height: 6.7 },  zoom: { cx: 0.68, cy: 0.89, scale: 2.2 } },
+  // clip = 바닥에 비스듬히 놓인 폰의 대각선 4점(방 이미지 대비 %). 울리는 클론이 이 다각형으로
+  // 클리핑돼 폰 전체가 한 덩어리로 흔들린다(사각형 타원 마스크였을 때 폰 가운데만 움직여 보이던 문제 해결).
+  // ?edit 편집기 phone 스팟으로 네 꼭짓점 재서 교체. (좌표는 area와 같은 좌표계)
+  { id: "phone",    label: "Phone",        area: { left: 63.7, top: 86.6, width: 10.5, height: 9.8 },  zoom: { cx: 0.68, cy: 0.89, scale: 2.2 }, clip: { tl: [63.7, 93.5], tr: [69.9, 86.6], br: [74.2, 89], bl: [68.6, 96.4] } },
   { id: "album",    label: "Album",        area: { left: 77,   top: 77.7, width: 13.9, height: 8.7 },  zoom: { cx: 0.79, cy: 0.80, scale: 2.2 } },
   // 바닥 과자봉지 — 화면 없음. 호버 시 과자 먹는 소리만(클릭 연출 없음).
   { id: "snack",    label: "Snack",        area: { left: 41.9, top: 88.5, width: 7.9,  height: 8 },    zoom: { cx: 0.46, cy: 0.90, scale: 2.2 } },

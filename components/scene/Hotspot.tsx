@@ -1,6 +1,6 @@
 "use client";
 import type { CSSProperties } from "react";
-import { Spot, ROOM_IMG, ROOM_IMG_NIGHT } from "@/lib/spots";
+import { Spot, ROOM_IMG, ROOM_IMG_NIGHT, ROOM_IMG_DARK } from "@/lib/spots";
 import { useRingSound } from "@/lib/useRingSound";
 
 interface Props {
@@ -49,7 +49,9 @@ export function Hotspot({
       onMouseLeave={() => onHover?.(spot, false)}
       disabled={disabled}
       aria-label={spot.label}
-      style={{ left: `${left}%`, top: `${top}%`, width: `${width}%`, height: `${height}%`, clipPath, "--pop": popScale } as CSSProperties}
+      // 울리는 동안엔 버튼을 클리핑하지 않는다 — 클론(span)이 회전하며 clip 다각형 밖으로 나갈 때
+      // 정적 버튼 클립에 잘리면 다시 "가운데만 움직이는" 문제가 생기므로, 클립은 회전하는 span에만 건다.
+      style={{ left: `${left}%`, top: `${top}%`, width: `${width}%`, height: `${height}%`, clipPath: ring ? undefined : clipPath, "--pop": popScale } as CSSProperties}
       className="hotspot-cursor group absolute rounded-[14px] disabled:pointer-events-none"
     >
       {/* 호버 팝 — 방 이미지에서 이 영역만 잘라낸 복제본을 확대 (가구가 살짝 커지는 효과).
@@ -80,11 +82,26 @@ export function Hotspot({
         <span
           aria-hidden
           style={{
-            backgroundImage: `url(${ROOM_IMG})`,
+            // 로그인 화면(main.png = ROOM_IMG_DARK)을 슬라이스 — 그 이미지엔 폰 화면이 이미 켜져 있어
+            // 클론이 베이스와 정확히 겹친다(bright 이미지는 폰 위치가 달라 clip이 어긋났음).
+            backgroundImage: `url(${ROOM_IMG_DARK})`,
             backgroundSize: `${10000 / width}% ${10000 / height}%`,
             backgroundPosition: `${(left / (100 - width)) * 100}% ${(top / (100 - height)) * 100}%`,
+            // clip 다각형(폰 모양)으로 클리핑 — span 자신에 걸어 회전과 함께 움직인다(폰 전체가 한 덩어리로 흔들림).
+            // clip이 없으면 예전 방식(중심 타원 마스크)으로 폴백.
+            clipPath,
           }}
-          className="absolute inset-0 rounded-[inherit] opacity-0 animate-ring motion-reduce:animate-none [mask-image:radial-gradient(ellipse_at_center,black_38%,transparent_70%)] pointer-events-none"
+          className={`absolute inset-0 rounded-[inherit] opacity-0 animate-ring motion-reduce:animate-none pointer-events-none ${
+            clipPath ? "" : "[mask-image:radial-gradient(ellipse_at_center,black_38%,transparent_70%)]"
+          }`}
+        />
+      )}
+      {/* 울리는 폰 글로우 — 호버 밝기(밤 amber)를 울리는 동안 상시로. 소프트 헤일로라 클리핑 없이
+          가장자리를 페더링(inset-0=area 중심≈폰). buzz에 맞춰 살짝 커졌다 작아짐(ring-flare). */}
+      {ring && (
+        <span
+          aria-hidden
+          className="absolute inset-0 rounded-[inherit] opacity-0 animate-ring-glow motion-reduce:animate-none mix-blend-screen pointer-events-none bg-[radial-gradient(ellipse_at_center,theme(colors.amber/65%),theme(colors.amber/26%)_45%,transparent_74%)]"
         />
       )}
       {/* 호버 글로우 — 가구 자체가 밝아짐. 방이 켜진 뒤에만(pop) 작동.
