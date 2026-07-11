@@ -5,7 +5,11 @@ import { ScreenShell } from "./ScreenShell";
 import { supabase } from "@/lib/supabase";
 import { roomByNickname, getRoom, HOME_ROOM_ID } from "@/lib/rooms";
 import { useAvatar } from "@/lib/useAvatar";
+import { useProfileName } from "@/lib/useProfileName";
 import { useRoom } from "../RoomContext";
+
+/** Renaiss 프로필 UUID 형식 검증 (방 방문 입력용) */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 import { Check, Heart, House, Trash } from "@phosphor-icons/react";
 
 /** 방 주인이 그 글에 단 댓글 하나 (여러 개 가능). Supabase `guestbook.comments`(jsonb) 배열에 저장. */
@@ -87,6 +91,23 @@ export function NoteScreen({ onClose }: { onClose: () => void }) {
   // 글별 댓글 입력 초안 (방 주인 전용, 각 글에 상시 노출되는 입력칸 — 여러 번 작성 가능)
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const isOwnRoom = room.id === HOME_ROOM_ID;
+
+  // 즉석 방(synthetic)의 표시 이름 — 프로필 username으로 해석, 없으면 room.ownerName(짧은 UUID)
+  const resolvedName = useProfileName(room.synthetic ? room.renaissUser : undefined);
+  const ownerLabel = resolvedName ?? room.ownerName;
+
+  // 다른 유저 방 방문 — Renaiss 프로필 UUID 입력 → visitRoom(즉석 방 전환)
+  const [visitId, setVisitId] = useState("");
+  const [visitErr, setVisitErr] = useState("");
+  function handleVisit() {
+    const id = visitId.trim();
+    if (!UUID_RE.test(id)) {
+      setVisitErr("Enter a valid Renaiss profile UUID.");
+      return;
+    }
+    onClose();
+    visitRoom(id);
+  }
 
   useEffect(() => {
     let lastSearch = window.location.search;
@@ -208,67 +229,103 @@ export function NoteScreen({ onClose }: { onClose: () => void }) {
           className="pointer-events-none absolute inset-3 rounded-[14px] opacity-45 bg-[linear-gradient(theme(colors.inkdark/5%)_1px,transparent_1px)] bg-[length:100%_28px]"
         />
 
-        <div
-          className={`relative grid h-full text-inkdark ${
-            isOwnRoom
-              ? "grid-cols-1"
-              : "grid-cols-1 grid-rows-[auto_minmax(0,1fr)] md:grid-cols-[0.92fr_1.08fr] md:grid-rows-1"
-          }`}
-        >
-          {/* 작성 칸 — 남의 방을 방문했을 때만. 내 방에서는 읽기·답글만 */}
-          {!isOwnRoom && (
+        <div className="relative grid h-full text-inkdark grid-cols-1 grid-rows-[auto_minmax(0,1fr)] md:grid-cols-[0.92fr_1.08fr] md:grid-rows-1">
           <section className="min-h-0 flex flex-col border-b md:border-b-0 md:border-r border-inkdark/10 px-5 py-4 sm:px-7 sm:py-6">
             <div className="shrink-0">
               <div className="text-[10px] font-bold uppercase tracking-[0.26em] text-inkdark/55">Notebook</div>
               <h2 className="mt-1 font-serif text-3xl leading-none text-inkdark">Guestbook</h2>
               <p className="mt-2 text-[13px] leading-relaxed text-inkdark/60">
-                Leave a note in {room.ownerName}&apos;s room.
+                {isOwnRoom ? (
+                  "Your guestbook. Visit another collector's room below."
+                ) : (
+                  <>Leave a note in {ownerLabel}&apos;s room.</>
+                )}
               </p>
             </div>
 
-            <div className="mt-6 flex items-center gap-3 rounded-xl border border-amber/20 bg-cream/50 p-3">
-              <Avatar
-                nickname={ME}
-                userId={getRoom(HOME_ROOM_ID).renaissUser}
-                avatarUrl={getRoom(HOME_ROOM_ID).avatarUrl}
-                size={38}
-              />
-              <div className="min-w-0">
-                <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-inkdark/45">Signed as</div>
-                <div className="truncate text-sm font-bold text-inkdark">{ME}</div>
-              </div>
-            </div>
-
-            <div className="mt-4 flex min-h-0 flex-1 flex-col">
-              <textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder={`Write a note for ${room.ownerName}...`}
-                maxLength={160}
-                className={`${paperInputCls} min-h-[88px] md:min-h-[140px] flex-1 resize-none`}
-              />
-              <div className="mt-3 flex items-center justify-between gap-3">
-                <span className="text-[11px] font-semibold text-inkdark/45">{message.length}/160</span>
+            {/* 다른 유저 방 방문 — Renaiss 프로필 UUID 입력 → 즉석 방 전환 (모든 방에서 노출) */}
+            <div className="mt-5 shrink-0 rounded-xl border border-amber/20 bg-cream/50 p-3">
+              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-inkdark/45">Visit a room</div>
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  value={visitId}
+                  onChange={(e) => {
+                    setVisitId(e.target.value);
+                    if (visitErr) setVisitErr("");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleVisit();
+                    }
+                  }}
+                  placeholder="Renaiss profile UUID"
+                  spellCheck={false}
+                  className={`${paperInputCls} min-w-0 flex-1 !py-2 font-mono text-[12px]`}
+                />
                 <button
-                  onClick={handlePost}
-                  disabled={loading || !message.trim()}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-amber px-4 py-2.5 text-sm font-bold text-inkdark transition hover:brightness-110 disabled:opacity-40"
+                  onClick={handleVisit}
+                  disabled={!visitId.trim()}
+                  className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-inkdark px-3 py-2 text-[13px] font-bold text-cream transition hover:brightness-125 disabled:opacity-40"
                 >
-                  <Check size={16} weight="bold" aria-hidden />
-                  Sign note
+                  <House size={15} weight="fill" aria-hidden />
+                  Visit
                 </button>
               </div>
+              {visitErr ? (
+                <p className="mt-1.5 text-[11px] font-semibold text-down">{visitErr}</p>
+              ) : (
+                <p className="mt-1.5 text-[11px] text-inkdark/45">Paste a user&apos;s UUID to enter their room.</p>
+              )}
             </div>
+
+            {/* 작성 칸 — 남의 방을 방문했을 때만 (내 방에선 읽기·답글만) */}
+            {!isOwnRoom && (
+              <>
+                <div className="mt-4 shrink-0 flex items-center gap-3 rounded-xl border border-amber/20 bg-cream/50 p-3">
+                  <Avatar
+                    nickname={ME}
+                    userId={getRoom(HOME_ROOM_ID).renaissUser}
+                    avatarUrl={getRoom(HOME_ROOM_ID).avatarUrl}
+                    size={38}
+                  />
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-inkdark/45">Signed as</div>
+                    <div className="truncate text-sm font-bold text-inkdark">{ME}</div>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex min-h-0 flex-1 flex-col">
+                  <textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder={`Write a note for ${ownerLabel}...`}
+                    maxLength={160}
+                    className={`${paperInputCls} min-h-[88px] md:min-h-[140px] flex-1 resize-none`}
+                  />
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <span className="text-[11px] font-semibold text-inkdark/45">{message.length}/160</span>
+                    <button
+                      onClick={handlePost}
+                      disabled={loading || !message.trim()}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-amber px-4 py-2.5 text-sm font-bold text-inkdark transition hover:brightness-110 disabled:opacity-40"
+                    >
+                      <Check size={16} weight="bold" aria-hidden />
+                      Sign note
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </section>
-          )}
 
           <section className="min-h-0 flex flex-col px-5 py-5 sm:px-7 sm:py-6">
             <div className="shrink-0 flex items-start justify-between gap-3">
-              <div>
-                <div className="text-[10px] font-bold uppercase tracking-[0.26em] text-inkdark/55">
-                  {room.id}
+              <div className="min-w-0">
+                <div className="truncate text-[10px] font-bold uppercase tracking-[0.26em] text-inkdark/55">
+                  {room.synthetic ? "Visitor" : room.id}
                 </div>
-                <h3 className="mt-1 text-lg font-bold text-inkdark">{room.ownerName}&apos;s notes</h3>
+                <h3 className="mt-1 truncate text-lg font-bold text-inkdark">{ownerLabel}&apos;s notes</h3>
               </div>
               <span className="shrink-0 rounded-full border border-inkdark/10 bg-cream/55 px-3 py-1 text-[11px] font-bold text-inkdark/55">
                 {visiblePosts.length} notes
@@ -279,7 +336,7 @@ export function NoteScreen({ onClose }: { onClose: () => void }) {
               {visiblePosts.length === 0 && (
                 <div className="rounded-xl border border-dashed border-inkdark/15 bg-cream/40 p-8 text-center text-inkdark/55">
                   <div className="font-serif text-xl text-inkdark">No guestbook yet</div>
-                  <div className="mt-1 text-xs">Be the first to sign {room.ownerName}&apos;s guestbook.</div>
+                  <div className="mt-1 text-xs">Be the first to sign {ownerLabel}&apos;s guestbook.</div>
                 </div>
               )}
 
