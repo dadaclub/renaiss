@@ -2,12 +2,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
+  ArrowSquareOut,
   ArrowsClockwise,
+  ArrowsDownUp,
   Cards,
   CaretDown,
   CaretLeft,
   CaretRight,
-  CaretUp,
   MonitorPlay,
   PencilSimple,
   Plus,
@@ -52,6 +53,8 @@ interface ShelfCard {
   tint: string;
   imageUrl?: string; // 실제 카드 이미지 (예: PSA imageUrlFront)
   priceUsd?: number;
+  /** 가격 출처 링크 — 온체인=Renaiss 카드 페이지, 실물=TCGplayer 등 시세 소스. 클릭 시 새 탭. */
+  priceUrl?: string;
   delta30d?: number;
   acquiredAt: string;
   /** 등록 시각(Supabase created_at) — Newest/Oldest 정렬 기준. acquiredAt은 날짜만이라 동일값이 많아 순서가 안 갈림 */
@@ -67,9 +70,16 @@ interface ShelfCard {
  *  /api/showcase = 공개 프로필의 favoritedCollectibles (유저가 직접 올린 카드). 비면 빈 배열.
  *  실패(오프라인/장애) 시에만 fromFallback=true — 가짜 카드는 더 이상 채우지 않고 빈 선반 유지.
  *  참고: 공개 API엔 "지갑주소 보유 카드" 엔드포인트가 없어 유저 ID 쇼케이스만 유저 스코프. */
-async function fetchOnchainCards(user?: string): Promise<{ cards: ShelfCard[]; fromFallback: boolean }> {
+async function fetchOnchainCards(
+  opts: { user?: string; ids?: string[] } = {}
+): Promise<{ cards: ShelfCard[]; fromFallback: boolean }> {
   try {
-    const res = await fetch(`/api/showcase${user ? `?user=${encodeURIComponent(user)}` : ""}`);
+    const qs = opts.ids?.length
+      ? `?ids=${opts.ids.map(encodeURIComponent).join(",")}`
+      : opts.user
+        ? `?user=${encodeURIComponent(opts.user)}`
+        : "";
+    const res = await fetch(`/api/showcase${qs}`);
     if (res.ok) {
       const { cards } = (await res.json()) as {
         cards: {
@@ -93,6 +103,9 @@ async function fetchOnchainCards(user?: string): Promise<{ cards: ShelfCard[]; f
           tint: TINTS[i % TINTS.length],
           imageUrl: c.imageUrl,
           priceUsd: c.priceUsd,
+          tokenId: c.tokenId, // 온체인 시세 재조회(/api/showcase?ids=) + Renaiss 링크에 필요
+          // 온체인 카드 가격 클릭 → Renaiss 카드 페이지(공개)로 이동
+          priceUrl: c.tokenId ? `https://www.renaiss.xyz/card/${c.tokenId}` : undefined,
           acquiredAt: c.acquiredAt ?? "",
           origin: "onchain" as const,
         })),
@@ -130,6 +143,9 @@ function rowToCard(r: SavedRow, i: number): ShelfCard {
     createdAt: r.created_at,
     origin: r.origin === "onchain" ? "onchain" : "physical",
     tokenId: r.token_id ?? undefined,
+    // 온체인 저장 카드도 가격 클릭 → Renaiss 카드 페이지 (token_id 있을 때)
+    priceUrl:
+      r.origin === "onchain" && r.token_id ? `https://www.renaiss.xyz/card/${r.token_id}` : undefined,
     fromDb: true,
   };
 }
@@ -235,6 +251,13 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
   const [syncError, setSyncError] = useState(false); // 실시간 동기화 실패 → 목데이터로 대체됨
   const [sort, setSort] = useState<SortKey>("newest");
   const [modal, setModal] = useState<ModalState>(null);
+  // 상단 필터 — 출처(전체/온체인/실물) + 컬렉션(프랜차이즈). 컬렉션은 클릭 시 열리는 드롭다운.
+  const [originFilter, setOriginFilter] = useState<"all" | "onchain" | "physical">("all");
+  const [collection, setCollection] = useState<string | null>(null); // null = 전체 컬렉션
+  const [collectionOpen, setCollectionOpen] = useState(false);
+  const collRef = useRef<HTMLDivElement>(null);
+  const [sortOpen, setSortOpen] = useState(false); // 정렬 드롭다운 열림
+  const sortRef = useRef<HTMLDivElement>(null);
   // 상세로 연 카드는 id로 추적 — 정렬(visible) 안에서 앞/뒤로 이동하기 위해 인덱스를 매번 새로 계산
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [gallery, setGallery] = useState(false); // 전시(갤러리) 모드 — 순수 감상용 풀스크린
@@ -246,9 +269,68 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 실물 카드 시세 비동기 로드 — 가격 없는 카드만 /api/price로 채운다(캐시+무료API).
+  // 카드는 먼저 렌더되고 가격만 나중에 팝인 → 화면이 시세 대기로 멈추지 않음.
+  const pricedIds = useRef<Set<string>>(new Set());
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true; // StrictMode 이중 마운트 시 재설정 (클린업에서 false 된 걸 되돌림)
+    return () => { mounted.current = false; };
+  }, []);
+  useEffect(() => {
+    const targets = cards.filter(
+      (c) => c.priceUsd === undefined && c.name.trim() && !pricedIds.current.has(c.id)
+    );
+    if (targets.length === 0) return;
+    targets.forEach((c) => pricedIds.current.add(c.id));
+    (async () => {
+      for (const c of targets) {
+        try {
+          let priceUsd: number | undefined;
+          let sourceUrl: string | undefined;
+          if (c.origin === "onchain") {
+            // 온체인 카드 = Renaiss 시세(즉시구매가). tokenId로 카드 상세 조회. priceUrl은 이미 Renaiss 링크.
+            if (!c.tokenId) continue;
+            const res = await fetch(`/api/showcase?ids=${encodeURIComponent(c.tokenId)}`);
+            if (res.ok) {
+              const { cards } = (await res.json()) as { cards?: { priceUsd?: number }[] };
+              priceUsd = cards?.[0]?.priceUsd;
+            }
+          } else {
+            // 실물 카드 = 확정값(코드/이름 매칭) → 무료 시세 API(pokemontcg.io / 스냅샷)
+            const params = new URLSearchParams({ name: c.name, franchise: c.franchise });
+            if (c.grade && c.grade.toLowerCase() !== "raw") params.set("grade", c.grade);
+            // 카드 코드(OP01-016 등)를 이미지 URL에서 추출 → 확정값 정확 매칭(같은 이름 여러 장 구분).
+            // 프록시 URL(%2F 인코딩)을 디코드 후 슬래시 뒤 코드만 잡는다(앞의 F 등 오염 방지).
+            const code = decodeURIComponent(c.imageUrl ?? "").match(/\/([A-Za-z]{2,3}\d{2}-\d{3})/)?.[1];
+            if (code) params.set("code", code);
+            const res = await fetch(`/api/price?${params.toString()}`);
+            if (res.ok) {
+              const { price } = (await res.json()) as { price: { priceUsd?: number; sourceUrl?: string } | null };
+              priceUsd = price?.priceUsd;
+              sourceUrl = price?.sourceUrl;
+            }
+          }
+          if (mounted.current && priceUsd != null) {
+            setCards((prev) =>
+              prev.map((x) =>
+                x.id === c.id ? { ...x, priceUsd, priceUrl: x.priceUrl ?? sourceUrl } : x
+              )
+            );
+          }
+        } catch {
+          /* 실패 시 가격 없이 '—' 유지 */
+        }
+      }
+    })();
+  }, [cards]);
+
   async function syncWallet() {
     setSyncing(true);
-    const { cards: onchain, fromFallback } = await fetchOnchainCards(room.renaissUser);
+    // 방문 방에 온체인 카드 목록이 지정돼 있으면 그 tokenId들로(실카드·실시세), 아니면 유저 쇼케이스로
+    const { cards: onchain, fromFallback } = await fetchOnchainCards(
+      room.onchainTokenIds?.length ? { ids: room.onchainTokenIds } : { user: room.renaissUser }
+    );
     // 직접 등록한 카드(fromDb — 실물/온체인 모두)는 동기화로 덮어쓰지 않는다
     setCards((prev) => [...onchain, ...prev.filter((c) => c.fromDb)]);
     setSyncing(false);
@@ -256,8 +338,10 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
     setSyncError(fromFallback);
   }
 
-  /** Supabase에 저장해둔 등록 카드 로드 — 이 방(room.id)의 카드만, 새로고침해도 유지 */
+  /** Supabase에 저장해둔 등록 카드 로드 — 이 방(room.id)의 카드만, 새로고침해도 유지.
+   *  온체인 전용 방(onchainTokenIds 지정)은 실물 카드를 섞지 않음. */
   async function loadSaved() {
+    if (room.onchainTokenIds?.length) return;
     const saved = await fetchSavedCards(room.id);
     if (saved.length === 0) return;
     setCards((prev) => [...prev.filter((c) => !c.fromDb), ...saved]);
@@ -353,7 +437,33 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
     }
   }
 
-  const visible = useMemo(() => sortCards(cards, sort), [cards, sort]);
+  // 카드에 존재하는 컬렉션(프랜차이즈) 목록 — 드롭다운 옵션
+  const collections = useMemo(
+    () => Array.from(new Set(cards.map((c) => c.franchise).filter(Boolean))).sort(),
+    [cards]
+  );
+  // 두 출처가 다 있을 때만 온체인/실물 필터를 노출 (한 종류뿐이면 의미 없음)
+  const hasOnchain = useMemo(() => cards.some((c) => c.origin === "onchain"), [cards]);
+  const hasPhysical = useMemo(() => cards.some((c) => c.origin === "physical"), [cards]);
+
+  const visible = useMemo(() => {
+    let arr = cards;
+    if (originFilter !== "all") arr = arr.filter((c) => c.origin === originFilter);
+    if (collection) arr = arr.filter((c) => c.franchise === collection);
+    return sortCards(arr, sort);
+  }, [cards, sort, originFilter, collection]);
+
+  // 드롭다운(정렬·컬렉션) 바깥 클릭 시 닫기
+  useEffect(() => {
+    if (!collectionOpen && !sortOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (collRef.current && !collRef.current.contains(t)) setCollectionOpen(false);
+      if (sortRef.current && !sortRef.current.contains(t)) setSortOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [collectionOpen, sortOpen]);
 
   // 상세로 연 카드의 현재 정렬 내 위치 — 좌우 이동/양끝 판정의 기준
   const selectedIndex = selectedId ? visible.findIndex((c) => c.id === selectedId) : -1;
@@ -401,45 +511,133 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
       >
         {/* 상단 — 떠 있는 컨트롤 (타이틀 없음). 항상 고정 Back·Gallery 버튼 아래 줄로 내려
             둘이 같은 라인에 겹치지 않게 분리 (데스크톱 포함) */}
-        <div className="shrink-0 flex flex-col items-center gap-3 pt-[72px] pb-2 px-6">
+        <div className="shrink-0 relative z-20 flex flex-col items-center gap-3 pt-[72px] pb-2 px-6">
           <div className="flex items-center gap-2 flex-wrap justify-center bg-glass/70 backdrop-blur-md border border-glassline rounded-full px-3 py-2">
-            {/* 정렬 — 2개 토글 칩. 날짜(Newest↑⇄Oldest↓), 가격(high↑⇄low↓). 탭하면 방향 반전 */}
-            <div aria-label="Sort cards" className="flex items-center gap-1.5">
-              {/* 날짜 */}
-              <Chip
-                active={sort === "newest" || sort === "oldest"}
-                onClick={() => setSort(sort === "newest" ? "oldest" : "newest")}
-              >
-                <span className="inline-flex items-center gap-1">
-                  {sort === "oldest" ? SORT_LABELS.oldest : SORT_LABELS.newest}
-                  {sort === "oldest" ? (
-                    <CaretDown size={11} weight="bold" aria-hidden />
-                  ) : (
-                    <CaretUp size={11} weight="bold" aria-hidden />
-                  )}
+            {/* 정렬 — 드롭다운 하나로 (Newest / Oldest / Price high / Price low) */}
+            <div ref={sortRef} className="relative">
+              <Chip active={sortOpen} onClick={() => setSortOpen((o) => !o)}>
+                <span className="inline-flex items-center gap-1.5">
+                  <ArrowsDownUp size={12} weight="bold" aria-hidden />
+                  {SORT_LABELS[sort]}
+                  <CaretDown
+                    size={11}
+                    weight="bold"
+                    aria-hidden
+                    className={`transition-transform ${sortOpen ? "rotate-180" : ""}`}
+                  />
                 </span>
               </Chip>
-              {/* 가격 */}
-              <Chip
-                active={sort === "priceHigh" || sort === "priceLow"}
-                onClick={() => setSort(sort === "priceHigh" ? "priceLow" : "priceHigh")}
-              >
-                <span className="inline-flex items-center gap-1">
-                  {sort === "priceLow" ? SORT_LABELS.priceLow : SORT_LABELS.priceHigh}
-                  {sort === "priceLow" ? (
-                    <CaretDown size={11} weight="bold" aria-hidden />
-                  ) : (
-                    <CaretUp size={11} weight="bold" aria-hidden />
-                  )}
-                </span>
-              </Chip>
+              {sortOpen && (
+                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-30 min-w-[140px] rounded-xl bg-[#0e0b1a]/95 border border-glassline p-1 shadow-[0_20px_60px_rgba(0,0,0,0.6)] backdrop-blur-md">
+                  {(["newest", "oldest", "priceHigh", "priceLow"] as SortKey[]).map((k) => (
+                    <button
+                      key={k}
+                      onClick={() => {
+                        setSort(k);
+                        setSortOpen(false);
+                      }}
+                      className={`block w-full text-left text-[12px] rounded-lg px-3 py-1.5 transition ${
+                        sort === k ? "bg-amber text-inkdark font-bold" : "text-cream hover:bg-cream/10"
+                      }`}
+                    >
+                      {SORT_LABELS[k]}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
+            {/* 출처 필터 — 온체인/실물 (둘 다 있을 때만) */}
+            {synced && hasOnchain && hasPhysical && (
+              <>
+                <span className="w-px h-4 bg-glassline" aria-hidden />
+                <div
+                  aria-label="Filter by origin"
+                  className="inline-flex items-center rounded-full bg-inkdark/40 border border-glassline p-0.5"
+                >
+                  {(
+                    [
+                      ["all", "All"],
+                      ["onchain", "On-chain"],
+                      ["physical", "Physical"],
+                    ] as const
+                  ).map(([k, label]) => (
+                    <button
+                      key={k}
+                      onClick={() => setOriginFilter(k)}
+                      className={`px-2.5 py-1 rounded-full text-[12px] font-bold transition-colors ${
+                        originFilter === k
+                          ? "bg-amber text-inkdark"
+                          : "text-creamdim hover:text-cream"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* 컬렉션 — 누르면 열리는 드롭다운 */}
+            {synced && collections.length > 1 && (
+              <>
+                <span className="w-px h-4 bg-glassline" aria-hidden />
+                <div ref={collRef} className="relative">
+                  <Chip
+                    active={!!collection || collectionOpen}
+                    onClick={() => setCollectionOpen((o) => !o)}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      {collection ?? "Collection"}
+                      <CaretDown
+                        size={11}
+                        weight="bold"
+                        aria-hidden
+                        className={`transition-transform ${collectionOpen ? "rotate-180" : ""}`}
+                      />
+                    </span>
+                  </Chip>
+                  {collectionOpen && (
+                    <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-30 min-w-[150px] rounded-xl bg-[#0e0b1a]/95 border border-glassline p-1 shadow-[0_20px_60px_rgba(0,0,0,0.6)] backdrop-blur-md">
+                      <button
+                        onClick={() => {
+                          setCollection(null);
+                          setCollectionOpen(false);
+                        }}
+                        className={`block w-full text-left text-[12px] rounded-lg px-3 py-1.5 transition ${
+                          !collection ? "bg-amber text-inkdark font-bold" : "text-cream hover:bg-cream/10"
+                        }`}
+                      >
+                        All collections
+                      </button>
+                      {collections.map((col) => (
+                        <button
+                          key={col}
+                          onClick={() => {
+                            setCollection(col);
+                            setCollectionOpen(false);
+                          }}
+                          className={`block w-full text-left text-[12px] rounded-lg px-3 py-1.5 transition ${
+                            collection === col
+                              ? "bg-amber text-inkdark font-bold"
+                              : "text-cream hover:bg-cream/10"
+                          }`}
+                        >
+                          {col}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
             <span className="w-px h-4 bg-glassline" aria-hidden />
-            {/* 동기화는 Add card 모달의 From Renaiss 탭으로 통일 — 여기는 상태 표시만 */}
+            {/* 카드 수 표시 (필터 반영) */}
             <span className="text-[12px] text-creamdim font-semibold px-1">
               {syncing ? "Loading…" : synced ? `${visible.length} cards` : ""}
             </span>
           </div>
+
           {syncError && (
             <div className="flex items-center gap-2 text-[12px] font-semibold text-creamdim bg-glass/70 backdrop-blur-md border border-glassline rounded-full px-3.5 py-1.5">
               <Warning size={13} weight="fill" className="shrink-0 text-down" aria-hidden />
@@ -1026,7 +1224,20 @@ function CardDetail({
 
         {card.priceUsd !== undefined && (
           <div className="text-center">
-            <div className="text-cream text-xl font-extrabold">{fmtUsd(card.priceUsd)}</div>
+            {card.priceUrl ? (
+              <a
+                href={card.priceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={card.origin === "onchain" ? "View on Renaiss" : "View price source"}
+                className="text-cream text-xl font-extrabold inline-flex items-center gap-1 hover:text-amber transition-colors underline decoration-transparent hover:decoration-amber/60 underline-offset-4"
+              >
+                {fmtUsd(card.priceUsd)}
+                <ArrowSquareOut size={14} weight="bold" aria-hidden className="opacity-60" />
+              </a>
+            ) : (
+              <div className="text-cream text-xl font-extrabold">{fmtUsd(card.priceUsd)}</div>
+            )}
             {card.delta30d !== undefined && (
               <div
                 className={`inline-flex items-center gap-1 text-[12px] font-bold ${up ? "text-up" : "text-down"}`}

@@ -29,6 +29,15 @@ const FRANCHISE_LABEL: Record<string, string> = {
   SPORTS: "Sports",
 };
 
+/** 온체인 표시 가격($) — 즉시구매가(ask, Buy Now) 우선, 없으면("NO-ASK-PRICE" 등) FMV로 폴백.
+ *  단위 주의: askPriceInUSDT는 USDT 18자리(wei) → ÷1e18, fmvPriceInUSD는 센트 → ÷100. */
+function pickOnchainPrice(ask?: string, fmv?: string): number | undefined {
+  const a = Number(ask);
+  if (Number.isFinite(a) && a > 0) return Math.round((a / 1e18) * 100) / 100;
+  const f = Number(fmv);
+  return Number.isFinite(f) && f > 0 ? Math.round(f) / 100 : undefined;
+}
+
 export async function GET(req: Request) {
   // 토큰ID 지정 조회 — 온체인 카드 수동 등록 (예: ?ids=123 또는 ?ids=1,2,3)
   const ids = new URL(req.url).searchParams
@@ -48,9 +57,8 @@ export async function GET(req: Request) {
               grade: [r.value.gradingCompany, r.value.grade].filter(Boolean).join(" ").trim(),
               franchise: (r.value.type && FRANCHISE_LABEL[r.value.type]) || r.value.setName || "",
               year: r.value.year,
-              priceUsd: Number.isFinite(Number(r.value.fmvPriceInUSD))
-                ? Number(r.value.fmvPriceInUSD)
-                : undefined,
+              // 온체인 가격 = 즉시구매가(Buy Now, askPriceInUSDT) 우선. 없으면("NO-ASK-PRICE") FMV로 폴백.
+              priceUsd: pickOnchainPrice(r.value.askPriceInUSDT, r.value.fmvPriceInUSD),
               acquiredAt: r.value.ownerAcquiredAt?.slice(0, 10).replaceAll("-", "."),
               imageUrl: r.value.frontWithoutStandImageUrl ?? r.value.frontImageUrl,
             },
