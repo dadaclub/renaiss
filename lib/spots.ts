@@ -77,8 +77,9 @@ export const PHONE_GLOW: { corners: Corners } = {
 };
 
 /** 방 씬 이미지 — 상태별 두 버전(크기·위치 동일, 색만 다름).
- *  입장 전=어두운 방(room_dark), 입장/로그인/방문 후=밝은 방(room_bright). Scene이 크로스페이드로 스위치. */
-export const ROOM_IMG_DARK = "/room_dark_v3.png";
+ *  로그인 전=어두운 방에 핸드폰만 켜진 화면(main.png), 로그인/방문 후=밝은 방(room_bright).
+ *  Scene이 크로스페이드로 스위치. */
+export const ROOM_IMG_DARK = "/main.png";
 export const ROOM_IMG_BRIGHT = "/room_bright_v3.png";
 /** 기본(밝은) 이미지 — Hotspot 호버 복제·LoginIntro·오브젝트 화면 배경 등 로그인 후 컨텍스트가 공유. */
 export const ROOM_IMG = ROOM_IMG_BRIGHT;
