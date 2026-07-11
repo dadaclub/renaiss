@@ -208,8 +208,16 @@ export function NoteScreen({ onClose }: { onClose: () => void }) {
           className="pointer-events-none absolute inset-3 rounded-[14px] opacity-45 bg-[linear-gradient(theme(colors.inkdark/5%)_1px,transparent_1px)] bg-[length:100%_28px]"
         />
 
-        <div className="relative grid h-full grid-cols-1 md:grid-cols-[0.92fr_1.08fr] text-inkdark">
-          <section className="min-h-0 flex flex-col border-b md:border-b-0 md:border-r border-inkdark/10 px-5 py-5 sm:px-7 sm:py-6">
+        <div
+          className={`relative grid h-full text-inkdark ${
+            isOwnRoom
+              ? "grid-cols-1"
+              : "grid-cols-1 grid-rows-[auto_minmax(0,1fr)] md:grid-cols-[0.92fr_1.08fr] md:grid-rows-1"
+          }`}
+        >
+          {/* 작성 칸 — 남의 방을 방문했을 때만. 내 방에서는 읽기·답글만 */}
+          {!isOwnRoom && (
+          <section className="min-h-0 flex flex-col border-b md:border-b-0 md:border-r border-inkdark/10 px-5 py-4 sm:px-7 sm:py-6">
             <div className="shrink-0">
               <div className="text-[10px] font-bold uppercase tracking-[0.26em] text-inkdark/55">Notebook</div>
               <h2 className="mt-1 font-serif text-3xl leading-none text-inkdark">Guestbook</h2>
@@ -237,7 +245,7 @@ export function NoteScreen({ onClose }: { onClose: () => void }) {
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder={`Write a note for ${room.ownerName}...`}
                 maxLength={160}
-                className={`${paperInputCls} min-h-[140px] flex-1 resize-none`}
+                className={`${paperInputCls} min-h-[88px] md:min-h-[140px] flex-1 resize-none`}
               />
               <div className="mt-3 flex items-center justify-between gap-3">
                 <span className="text-[11px] font-semibold text-inkdark/45">{message.length}/160</span>
@@ -252,6 +260,7 @@ export function NoteScreen({ onClose }: { onClose: () => void }) {
               </div>
             </div>
           </section>
+          )}
 
           <section className="min-h-0 flex flex-col px-5 py-5 sm:px-7 sm:py-6">
             <div className="shrink-0 flex items-start justify-between gap-3">
