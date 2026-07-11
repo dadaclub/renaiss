@@ -18,9 +18,10 @@ type CornerKey = "tl" | "tr" | "br" | "bl";
 const CORNER_KEYS: CornerKey[] = ["tl", "tr", "br", "bl"];
 const CORNER_LABEL: Record<CornerKey, string> = { tl: "TL", tr: "TR", br: "BR", bl: "BL" };
 
-/** 스팟의 overlay corners, 없으면 area(직사각형)에서 시드 */
+/** 스팟의 overlay corners > clip(대각선) > area(직사각형) 순으로 시드 */
 function seedCorners(spot: Spot): Corners {
   if (spot.overlay) return spot.overlay.corners;
+  if (spot.clip) return spot.clip; // 이미 clip이 있으면 그 대각선에서 이어서 조정
   const { left, top, width, height } = spot.area;
   return {
     tl: [left, top],
@@ -128,6 +129,9 @@ export function OverlayEditor({
   const areaWidth = round(Math.max(...xs) - areaLeft);
   const areaHeight = round(Math.max(...ys) - areaTop);
   const areaLine = `area: { left: ${areaLeft}, top: ${areaTop}, width: ${areaWidth}, height: ${areaHeight} },`;
+
+  // clip(대각선 다각형) — 비스듬한 오브젝트(폰 등)의 흔들림/히트 영역을 네 꼭짓점으로. spots.ts 의 clip 에 붙인다.
+  const clipLine = `clip: { tl: ${fmt(corners.tl)}, tr: ${fmt(corners.tr)}, br: ${fmt(corners.br)}, bl: ${fmt(corners.bl)} },`;
 
   const matrix = width && height ? quadMatrix3d(corners, width, height, BASE) : "";
 
@@ -261,6 +265,23 @@ export function OverlayEditor({
             className="w-full bg-amber text-inkdark font-bold rounded py-1.5 hover:brightness-110 transition"
           >
             Copy area line
+          </button>
+        </div>
+
+        {/* clip(대각선 다각형) — 폰처럼 비스듬한 오브젝트의 흔들림/히트 영역. spots.ts 의 clip 에 붙인다. */}
+        <div className="border-t border-glassline pt-2 space-y-1">
+          <div className="text-[10px] font-bold text-amber">Clip polygon (spots.ts clip)</div>
+          <textarea
+            readOnly
+            value={clipLine}
+            onFocus={(e) => e.currentTarget.select()}
+            className="w-full h-12 bg-black/40 border border-glassline rounded p-1.5 font-mono text-[10px] leading-snug resize-none"
+          />
+          <button
+            onClick={() => navigator.clipboard?.writeText(clipLine)}
+            className="w-full bg-amber text-inkdark font-bold rounded py-1.5 hover:brightness-110 transition"
+          >
+            Copy clip line
           </button>
         </div>
 
