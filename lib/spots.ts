@@ -46,7 +46,7 @@ export const SPOTS: Spot[] = [
   { id: "note",     label: "Guestbook",    area: { left: 18.6, top: 85.7, width: 17.6, height: 10.5 }, zoom: { cx: 0.16, cy: 0.80, scale: 2.5 } },
   { id: "phone",    label: "Phone",        area: { left: 63.7, top: 86,   width: 8.1,  height: 6.7 },  zoom: { cx: 0.68, cy: 0.89, scale: 2.2 } },
   { id: "album",    label: "Album",        area: { left: 75.6, top: 77.7, width: 13.9, height: 8.7 },  zoom: { cx: 0.79, cy: 0.80, scale: 2.2 } },
-  // 바닥 과자봉지 — 클릭 시 구겨지는 이스터에그(SnackCrumble). 화면 없음. 호버=글로우+비닐 부스럭 소리.
+  // 바닥 과자봉지 — 화면 없음. 호버 시 과자 먹는 소리만(클릭 연출 없음).
   { id: "snack",    label: "Snack",        area: { left: 42.2, top: 86.7, width: 7.9,  height: 8 },    zoom: { cx: 0.46, cy: 0.90, scale: 2.2 } },
   // 책상 위 피규어(가장 왼쪽) → 르네 트위터(외부 링크). 얇고 세로로 길다. zoom 미사용(href 스팟).
   { id: "figure",   label: "Rene on X",    area: { left: 73.5, top: 42.5, width: 3.8,  height: 12.7 }, zoom: { cx: 0.88, cy: 0.30, scale: 2.5 }, href: RENE_TWITTER_URL },
