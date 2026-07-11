@@ -23,13 +23,15 @@ export const ROOMS: Room[] = [
     id: "dada",
     ownerName: "Dada",
     renaissUser: "b5250240-9661-4894-b2e4-88e48db44e07",
-    avatarUrl: "https://8nothtoc5ds7a0x3.public.blob.vercel-storage.com/avatars/25.jpg",
+    avatarUrl:
+      "https://ndkrschqoxoqsxke.public.blob.vercel-storage.com/user-profile-images/ccccc-1783771042774.jpg",
   },
   {
     id: "joh",
     ownerName: "joh",
     renaissUser: "7e76696c-c18b-46cd-9a51-b58c8a71a834",
-    avatarUrl: "https://8nothtoc5ds7a0x3.public.blob.vercel-storage.com/avatars/38.jpg",
+    avatarUrl:
+      "https://ndkrschqoxoqsxke.public.blob.vercel-storage.com/user-profile-images/melonsdo4153-1783771060693.png",
     onchainTokenIds: [
       "93590260927867236827177606824992012223206200865404424287563030473522080256529",
       "100321052499733917869013506697132039521581103605747154648989157935387654986348",
@@ -55,7 +57,8 @@ export const ROOMS: Room[] = [
     id: "kikiundo",
     ownerName: "kikiundo",
     renaissUser: "4bd8ef5f-bc91-4b9a-a7f0-346dcd6a6018",
-    avatarUrl: "https://8nothtoc5ds7a0x3.public.blob.vercel-storage.com/avatars/13.jpg",
+    avatarUrl:
+      "https://ndkrschqoxoqsxke.public.blob.vercel-storage.com/user-profile-images/kikiundo-1783771221371.jpg",
     onchainTokenIds: [
       "26735001016119644293269800149978273795695747903495993200330716690637980725794",
       "82116862833552490132811876373911468082411602722512118594200873547421796992135",

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ScreenShell } from "./ScreenShell";
 import { supabase } from "@/lib/supabase";
 import { roomByNickname, getRoom, HOME_ROOM_ID } from "@/lib/rooms";
+import { useAvatar } from "@/lib/useAvatar";
 import { useRoom } from "../RoomContext";
 import { Check, Heart, House, Trash } from "@phosphor-icons/react";
 
@@ -34,19 +35,33 @@ function getRoomFromUrl() {
   return getRoom(new URLSearchParams(window.location.search).get("room"));
 }
 
-/** 프로필 아바타 — 알려진 방 유저면 실제 사진, 없거나 로드 실패면 닉네임 이니셜 배지(테마 톤). */
-function Avatar({ nickname, avatarUrl, size = 40 }: { nickname: string; avatarUrl?: string; size?: number }) {
+/** 프로필 아바타 — Renaiss 라이브 아바타(userId로 조회) 우선, 없으면 하드코딩 avatarUrl 폴백,
+ *  둘 다 없거나 로드 실패면 닉네임 이니셜 배지(테마 톤). 방 배지와 같은 소스라 사진이 일치한다. */
+function Avatar({
+  nickname,
+  userId,
+  avatarUrl,
+  size = 40,
+}: {
+  nickname: string;
+  userId?: string;
+  avatarUrl?: string;
+  size?: number;
+}) {
+  const live = useAvatar(userId);
+  const url = live ?? avatarUrl; // 라이브 우선, 없으면 하드코딩 폴백
   const [broken, setBroken] = useState(false);
+  useEffect(() => setBroken(false), [url]); // 소스가 바뀌면 broken 상태 리셋
   const initial = nickname.trim().charAt(0).toUpperCase() || "?";
   return (
     <span
       className="shrink-0 grid place-items-center rounded-lg overflow-hidden bg-ambersoft border border-glassline"
       style={{ width: size, height: size }}
     >
-      {avatarUrl && !broken ? (
+      {url && !broken ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={avatarUrl}
+          src={url}
           alt=""
           draggable={false}
           onError={() => setBroken(true)}
@@ -204,7 +219,12 @@ export function NoteScreen({ onClose }: { onClose: () => void }) {
             </div>
 
             <div className="mt-6 flex items-center gap-3 rounded-xl border border-amber/20 bg-cream/50 p-3">
-              <Avatar nickname={ME} avatarUrl={getRoom(HOME_ROOM_ID).avatarUrl} size={38} />
+              <Avatar
+                nickname={ME}
+                userId={getRoom(HOME_ROOM_ID).renaissUser}
+                avatarUrl={getRoom(HOME_ROOM_ID).avatarUrl}
+                size={38}
+              />
               <div className="min-w-0">
                 <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-inkdark/45">Signed as</div>
                 <div className="truncate text-sm font-bold text-inkdark">{ME}</div>
@@ -297,7 +317,12 @@ export function NoteScreen({ onClose }: { onClose: () => void }) {
 
                     {/* 본문 — 왼쪽 큰 프로필 + 오른쪽 내용 */}
                     <div className="flex gap-4 p-4">
-                      <Avatar nickname={post.nickname} avatarUrl={linkedRoom?.avatarUrl} size={52} />
+                      <Avatar
+                        nickname={post.nickname}
+                        userId={linkedRoom?.renaissUser}
+                        avatarUrl={linkedRoom?.avatarUrl}
+                        size={52}
+                      />
                       <div className="min-w-0 flex-1">
                         <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-cream/90">
                           {post.message}
