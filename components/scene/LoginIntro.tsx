@@ -16,7 +16,8 @@ type Step = "redirect" | "consent" | "connecting";
 const RENAISS_AUTH_URL = "renaiss.xyz/authorize";
 
 // 연동된 것처럼 보이게 하는 목 계정 표기 (실데이터 아님). 로그아웃 화면과 공유.
-export const MOCK_ACCOUNT = "0x7F3a…9c2B";
+// 전체 주소: 0xaa6daa7a39bbfd26618aedbf4b99781370cc1b5b → 배지엔 축약 표기.
+export const MOCK_ACCOUNT = "0xaa6d…1b5b";
 
 export function LoginIntro({ onLogin, onCancel }: { onLogin: () => void; onCancel: () => void }) {
   const [step, setStep] = useState<Step>("redirect");
