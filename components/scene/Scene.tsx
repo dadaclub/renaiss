@@ -15,6 +15,7 @@ import { OverlayQuad } from "./OverlayQuad";
 import { RoomProvider } from "./RoomContext";
 import { SnackHoverSound } from "./SnackHoverSound";
 import { SnackCrumble } from "./SnackCrumble";
+import { NoteHoverSound } from "./NoteHoverSound";
 import { ArrowLeft } from "@phosphor-icons/react";
 
 /** 프로필 배지 아바타 — 유저 UUID로 Renaiss 프로필의 avatarUrl을 동적 조회(useAvatar).
@@ -215,6 +216,9 @@ export function Scene() {
         {/* 과자봉지 호버 시 비닐 부스럭 소리 + 클릭 시 구겨짐 연출 */}
         <SnackHoverSound active={objectsReady && !active && hovered === "snack"} />
         <SnackCrumble trigger={crumbleKey} />
+
+        {/* 방명록 호버 시 종이 부스럭 소리 */}
+        <NoteHoverSound active={objectsReady && !active && hovered === "note"} />
 
         {edit && (
           <OverlayEditor

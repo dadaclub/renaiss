@@ -21,6 +21,7 @@ const config: Config = {
         sans: ["var(--font-fredoka)", "sans-serif"],
         serif: ["var(--font-noto-serif-kr)", "serif"],
         hand: ["var(--font-gochi-hand)", "cursive"],
+        pixel: ["var(--font-press-start)", "monospace"],
       },
       transitionTimingFunction: {
         camera: "cubic-bezier(0.32, 0.72, 0.25, 1)",
