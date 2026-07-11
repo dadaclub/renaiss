@@ -76,10 +76,12 @@ export function Scene() {
 
   // 시간대 낮/밤 — 06:00~17:59 낮(밝은 방), 그 외(18시~새벽 6시) 밤(어두운 방). 사용자 기기 로컬 시각.
   // SSR 하이드레이션 안전: 서버 렌더는 낮(기본)으로 두고, 마운트 후 실제 시각 반영 + 매 분 갱신해 6시 경계에서 자동 전환.
+  // 개발/데모용: ?hour=12 처럼 URL 파라미터로 시각을 강제(없으면 실제 시각). 예: ?hour=12(낮), ?hour=22(밤).
   const [isDay, setIsDay] = useState(true);
   useEffect(() => {
     const update = () => {
-      const h = new Date().getHours();
+      const forced = new URLSearchParams(window.location.search).get("hour");
+      const h = forced !== null && forced !== "" ? Number(forced) : new Date().getHours();
       setIsDay(h >= 6 && h < 18);
     };
     update();
@@ -162,7 +164,7 @@ export function Scene() {
 
   return (
     <RoomProvider value={{ room, isOwnRoom: !isVisiting, visitRoom }}>
-    <main className="fixed inset-0 overflow-hidden flex items-center justify-center bg-room-ambient">
+    <main className="fixed inset-0 overflow-hidden flex items-center justify-center bg-black">
       {/* 프레임 = 방 이미지 정사각형. overflow-hidden으로 줌·오브젝트 화면을 이 안에 가둔다
           (정사각형 밖 검은 여백으론 절대 안 넘침). */}
       <div className="relative shrink-0 w-[min(100vw,calc(100vh*1280/714))] aspect-[1280/714] overflow-hidden">
