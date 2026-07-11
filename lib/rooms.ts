@@ -16,6 +16,8 @@ export interface Room {
   /** 방문 방을 채울 온체인 카드 tokenId 목록 (마켓플레이스 실카드, 실시세).
    *  지정하면 이 방은 온체인 카드만 표시 — 홈(dada)은 미지정(실물+확정값 사용). */
   onchainTokenIds?: string[];
+  /** 레지스트리에 없는 임의 UUID로 즉석 생성된 방인지. true면 이름/아바타를 프로필에서 async 로드. */
+  synthetic?: boolean;
 }
 
 export const ROOMS: Room[] = [
@@ -73,7 +75,12 @@ export const ROOMS: Room[] = [
 export const HOME_ROOM_ID = ROOMS[0].id;
 
 export function getRoom(id: string | null | undefined): Room {
-  return ROOMS.find((r) => r.id === id) ?? ROOMS[0];
+  if (!id) return ROOMS[0];
+  // 등록된 방: id 또는 renaissUser(UUID)로 매칭 → 예쁜 이름/카드가 있는 방으로 연결
+  const found = ROOMS.find((r) => r.id === id || r.renaissUser === id);
+  if (found) return found;
+  // 미등록 UUID → 즉석 방 생성. id=UUID(방명록 owner 키), 이름/아바타는 프로필에서 async 로드.
+  return { id, ownerName: id.slice(0, 6), renaissUser: id, avatarUrl: "", synthetic: true };
 }
 
 /** 방명록 닉네임 → 방 (대소문자 무시). 알려진 유저면 그 방, 아니면 undefined(링크 없음). */

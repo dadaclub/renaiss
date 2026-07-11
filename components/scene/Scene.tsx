@@ -5,6 +5,7 @@ import { SPOTS, Spot, SpotId, ROOM_IMG_DARK, ROOM_IMG_BRIGHT, ROOM_IMG_NIGHT } f
 import { getRoom, HOME_ROOM_ID } from "@/lib/rooms";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 import { useAvatar } from "@/lib/useAvatar";
+import { useProfileName } from "@/lib/useProfileName";
 import { BackgroundMusic } from "./BackgroundMusic";
 import { ClickSound } from "./ClickSound";
 import { Hotspot } from "./Hotspot";
@@ -73,6 +74,8 @@ export function Scene() {
 
   const room = getRoom(roomId);
   const isVisiting = roomId !== HOME_ROOM_ID;
+  // 즉석 방(synthetic)은 이름을 프로필 username으로 해석 (없으면 짧은 UUID fallback)
+  const roomName = useProfileName(room.synthetic ? room.renaissUser : undefined) ?? room.ownerName;
 
   // 시간대 낮/밤 — 06:00~17:59 낮(밝은 방), 그 외(18시~새벽 6시) 밤(어두운 방). 사용자 기기 로컬 시각.
   // SSR 하이드레이션 안전: 서버 렌더는 낮(기본)으로 두고, 마운트 후 실제 시각 반영 + 매 분 갱신해 6시 경계에서 자동 전환.
@@ -288,7 +291,7 @@ export function Scene() {
         {isVisiting && (
           <div className="absolute top-2 sm:top-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 sm:gap-3 bg-glass border border-glassline text-cream text-[10px] sm:text-xs font-bold px-2.5 sm:px-4 py-1.5 sm:py-2.5 rounded-full backdrop-blur-md whitespace-nowrap">
             <span>
-              Visiting <span className="text-amber">{room.ownerName}</span>&apos;s room
+              Visiting <span className="text-amber">{roomName}</span>&apos;s room
             </span>
             <span className="w-px h-3.5 sm:h-4 bg-glassline" aria-hidden />
             <button
@@ -306,8 +309,8 @@ export function Scene() {
         {/* 프로필 배지 — 방 이미지 우하단, 스피커 버튼 옆. 아바타 + 닉네임만. */}
         {objectsReady && !active && !edit && (
           <div className="absolute bottom-3 right-12 sm:bottom-5 sm:right-16 z-30 flex items-center gap-1.5 sm:gap-2 h-7 sm:h-9 pl-0.5 pr-2 sm:pl-1 sm:pr-3 rounded-full bg-glass border border-glassline backdrop-blur-md">
-            <RoomAvatar key={room.id} name={room.ownerName} userId={room.renaissUser} />
-            <span className="text-cream text-[10px] sm:text-xs font-bold">{room.ownerName}</span>
+            <RoomAvatar key={room.id} name={roomName} userId={room.renaissUser} />
+            <span className="text-cream text-[10px] sm:text-xs font-bold">{roomName}</span>
           </div>
         )}
 
