@@ -54,21 +54,6 @@ button:enabled,
   to { opacity: 1; }
 }
 
-/* 과자봉지 구겨짐 — 클릭하면 비닐이 제자리에서 살짝 눌렸다 펴진다.
-   크게 움직이면 옆으로 삐져나가고 바닥에 그려진 원본 과자가 드러나 잔상(이중상)으로 보이므로,
-   회전·확대 최소 + skew 없음 + 아래쪽(50% 92%) 기준의 작은 세로 눌림으로만. */
-@keyframes snack-crumple {
-  0%   { transform: scale(1, 1) rotate(0deg); }
-  30%  { transform: scale(1.02, 0.9) rotate(-1deg); }
-  55%  { transform: scale(0.99, 0.95) rotate(0.8deg); }
-  78%  { transform: scale(1.01, 0.98) rotate(-0.4deg); }
-  100% { transform: scale(1, 1) rotate(0deg); }
-}
-.animate-snack-crumple {
-  transform-origin: 50% 92%;
-  animation: snack-crumple 0.4s ease-out;
-}
-
 /* 진입 스플래시 — "화면을 탭해서 입장" 안내가 은은히 숨쉬며 탭을 유도한다. */
 @keyframes tap-hint {
   0%, 100% { opacity: 0.55; }

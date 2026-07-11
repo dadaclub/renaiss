@@ -14,7 +14,6 @@ import { OverlayEditor } from "./OverlayEditor";
 import { OverlayQuad } from "./OverlayQuad";
 import { RoomProvider } from "./RoomContext";
 import { SnackHoverSound } from "./SnackHoverSound";
-import { SnackCrumble } from "./SnackCrumble";
 import { NoteHoverSound } from "./NoteHoverSound";
 import { ArrowLeft } from "@phosphor-icons/react";
 
@@ -52,7 +51,6 @@ export function Scene() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [active, setActive] = useState<SpotId | null>(null);
   const [hovered, setHovered] = useState<SpotId | null>(null); // 호버 중인 스팟 — 오버레이(액자 사진) pop용
-  const [crumbleKey, setCrumbleKey] = useState(0); // 과자봉지 클릭 시마다 증가 → SnackCrumble 구겨짐 재생
   // 현재 보고 있는 방 — SSR 안전 기본 홈, 마운트 후 URL ?room= 반영 (하이드레이션 일치)
   const [roomId, setRoomId] = useState<string>(HOME_ROOM_ID);
   const sceneRef = useRef<HTMLDivElement>(null);
@@ -121,11 +119,8 @@ export function Scene() {
     }
     // 방문 중 폰은 비활성 (홈 계정 로그아웃은 내 방에서만)
     if (spot.id === "phone" && isVisiting) return;
-    // 과자봉지 = 화면 없는 이스터에그. 클릭하면 구겨지는 연출만 트리거하고 화면은 안 연다.
-    if (spot.id === "snack") {
-      setCrumbleKey((k) => k + 1);
-      return;
-    }
+    // 과자봉지 = 화면 없는 이스터에그. 호버 사운드만 있고 클릭 시엔 아무 동작 안 함(화면 안 열림).
+    if (spot.id === "snack") return;
     // 로그인 연출은 카메라 줌 없이 — 폰 클릭 시 위에 로그인 모달만 뜨고, 승인하면 방이 밝아진다.
     // (예전엔 폰으로 줌인했는데 모달이 그걸 가려서, 승인 후 줌아웃만 보여 어색했음)
     setActive(spot.id);
@@ -213,9 +208,8 @@ export function Scene() {
           );
         })}
 
-        {/* 과자봉지 호버 시 비닐 부스럭 소리 + 클릭 시 구겨짐 연출 */}
+        {/* 과자봉지 호버 시 과자 먹는 소리 (클릭 연출 없음) */}
         <SnackHoverSound active={objectsReady && !active && hovered === "snack"} />
-        <SnackCrumble trigger={crumbleKey} />
 
         {/* 방명록 호버 시 종이 부스럭 소리 */}
         <NoteHoverSound active={objectsReady && !active && hovered === "note"} />
