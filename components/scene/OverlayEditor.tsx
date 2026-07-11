@@ -120,6 +120,15 @@ export function OverlayEditor({
   const fmt = (p: Pt) => `[${round(p[0])}, ${round(p[1])}]`;
   const line = `overlay: { src: "${src}", corners: { tl: ${fmt(corners.tl)}, tr: ${fmt(corners.tr)}, br: ${fmt(corners.br)}, bl: ${fmt(corners.bl)} } },`;
 
+  // area(호버·클릭 히트박스) = 네 꼭짓점의 바운딩 박스. 스팟의 area 한 줄로 뽑아 spots.ts에 붙인다.
+  const xs = [corners.tl[0], corners.tr[0], corners.br[0], corners.bl[0]];
+  const ys = [corners.tl[1], corners.tr[1], corners.br[1], corners.bl[1]];
+  const areaLeft = round(Math.min(...xs));
+  const areaTop = round(Math.min(...ys));
+  const areaWidth = round(Math.max(...xs) - areaLeft);
+  const areaHeight = round(Math.max(...ys) - areaTop);
+  const areaLine = `area: { left: ${areaLeft}, top: ${areaTop}, width: ${areaWidth}, height: ${areaHeight} },`;
+
   const matrix = width && height ? quadMatrix3d(corners, width, height, BASE) : "";
 
   const handleCls =
@@ -235,20 +244,42 @@ export function OverlayEditor({
           ))}
         </div>
         <div className="text-[10px] leading-relaxed text-creamdim/70">
-          사진 드래그=전체 이동 · 모서리=꼭짓점 개별 · 방향키=선택 모서리 미세이동(Shift=×5)
+          박스 드래그=전체 이동 · 모서리=꼭짓점 개별(크기조절) · 방향키=선택 모서리 미세이동(Shift=×5)
         </div>
-        <textarea
-          readOnly
-          value={line}
-          onFocus={(e) => e.currentTarget.select()}
-          className="w-full h-16 bg-black/40 border border-glassline rounded p-1.5 font-mono text-[10px] leading-snug resize-none"
-        />
-        <button
-          onClick={() => navigator.clipboard?.writeText(line)}
-          className="w-full bg-amber text-inkdark font-bold rounded py-1.5 hover:brightness-110 transition"
-        >
-          Copy spots.ts line
-        </button>
+
+        {/* 호버·클릭 영역(area) — 이 줄을 spots.ts 해당 스팟의 area 에 붙여넣으면 호버 위치가 바뀐다. */}
+        <div className="border-t border-glassline pt-2 space-y-1">
+          <div className="text-[10px] font-bold text-amber">Hover / click area (spots.ts)</div>
+          <textarea
+            readOnly
+            value={areaLine}
+            onFocus={(e) => e.currentTarget.select()}
+            className="w-full h-12 bg-black/40 border border-glassline rounded p-1.5 font-mono text-[10px] leading-snug resize-none"
+          />
+          <button
+            onClick={() => navigator.clipboard?.writeText(areaLine)}
+            className="w-full bg-amber text-inkdark font-bold rounded py-1.5 hover:brightness-110 transition"
+          >
+            Copy area line
+          </button>
+        </div>
+
+        {/* 오버레이(액자 속 사진 등) 꼭짓점 — 사진을 얹는 스팟에서만 사용 */}
+        <div className="border-t border-glassline pt-2 space-y-1">
+          <div className="text-[10px] text-creamdim/60">Overlay corners (사진 얹을 때만)</div>
+          <textarea
+            readOnly
+            value={line}
+            onFocus={(e) => e.currentTarget.select()}
+            className="w-full h-16 bg-black/40 border border-glassline rounded p-1.5 font-mono text-[10px] leading-snug resize-none"
+          />
+          <button
+            onClick={() => navigator.clipboard?.writeText(line)}
+            className="w-full bg-cream/10 border border-glassline text-cream rounded py-1.5 hover:border-amber transition"
+          >
+            Copy overlay line
+          </button>
+        </div>
       </div>
     </>
   );
