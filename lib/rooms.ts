@@ -75,12 +75,15 @@ export const ROOMS: Room[] = [
 export const HOME_ROOM_ID = ROOMS[0].id;
 
 export function getRoom(id: string | null | undefined): Room {
-  if (!id) return ROOMS[0];
+  // 앞뒤 공백·개행 제거 — ?room= 값이나 붙여넣기에 개행이 섞이면 등록된 방과 매칭이 깨지고,
+  // 그 값이 방명록 owner로 저장돼 "joh\r\n" 같은 유령 글(어느 방에도 안 뜸)이 생긴다.
+  const clean = id?.trim();
+  if (!clean) return ROOMS[0];
   // 등록된 방: id 또는 renaissUser(UUID)로 매칭 → 예쁜 이름/카드가 있는 방으로 연결
-  const found = ROOMS.find((r) => r.id === id || r.renaissUser === id);
+  const found = ROOMS.find((r) => r.id === clean || r.renaissUser === clean);
   if (found) return found;
   // 미등록 UUID → 즉석 방 생성. id=UUID(방명록 owner 키), 이름/아바타는 프로필에서 async 로드.
-  return { id, ownerName: id.slice(0, 6), renaissUser: id, avatarUrl: "", synthetic: true };
+  return { id: clean, ownerName: clean.slice(0, 6), renaissUser: clean, avatarUrl: "", synthetic: true };
 }
 
 /** 방명록 닉네임 → 방 (대소문자 무시). 알려진 유저면 그 방, 아니면 undefined(링크 없음). */

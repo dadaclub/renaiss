@@ -94,7 +94,40 @@ async function fetchCards(
  * 영어 사이트(en.)가 기본이지만, JP 전용 프로모는 일본 사이트(www.)에만 있어 둘 다 확인.
  * apitcg 결과에 이미 있는 접미사(_pN)는 건너뛰고, _p1~_p8 중 빠진 것만 HEAD로 존재 확인.
  */
-const OFFICIAL_HOSTS = ["en.onepiece-cardgame.com", "www.onepiece-cardgame.com"] as const;
+const OFFICIAL_HOSTS = ["en.onepiece-cardgame.com", "asia-en.onepiece-cardgame.com", "www.onepiece-cardgame.com"] as const;
+
+/**
+ * apitcg 없이 코드로 직접 조회하는 폴백 — apitcg 키 만료/장애(500)로 코드 검색이 죽었을 때.
+ * 공식 사이트는 카드 코드로 이미지 URL이 예측 가능하다(.../card/{CODE}.png, 패러렐은 _pN).
+ * base + _p1.._p8 을 HEAD로 존재 확인해 실재하는 판본만 반환.
+ * ⚠️ 카드 '이름'은 apitcg에서만 오므로, 여기선 코드를 이름 자리표시자로 둔다(등록 모달에서 유저가 수정 가능).
+ */
+async function fetchOfficialByCode(code: string): Promise<OnePieceCard[]> {
+  const suffixes = ["", ...Array.from({ length: 8 }, (_, i) => `_p${i + 1}`)];
+  const found: OnePieceCard[] = [];
+  await Promise.all(
+    suffixes.map(async (suffix) => {
+      for (const host of OFFICIAL_HOSTS) {
+        const url = `https://${host}/images/cardlist/card/${code}${suffix}.png`;
+        try {
+          const head = await fetch(url, { method: "HEAD" });
+          if (head.ok) {
+            found.push({
+              id: suffix ? `${code}${suffix}` : code,
+              name: suffix ? `${code} (Alt art)` : code,
+              imageUrl: url,
+            });
+            return; // 이 판본 확보 — 다음 호스트 불필요
+          }
+        } catch {
+          // 다음 호스트 시도
+        }
+      }
+    })
+  );
+  // base(접미사 없음)를 먼저 오게 코드 문자열순 정렬
+  return found.sort((a, b) => a.id.localeCompare(b.id));
+}
 
 async function probeMissingParallels(code: string, existing: OnePieceCard[]): Promise<OnePieceCard[]> {
   const have = new Set(
@@ -185,11 +218,21 @@ export async function searchTcgCards(game: ApiTcgGame, query: string, limit = 24
   if (game.codeSearch) {
     const code = toCardCode(query);
     if (code) {
-      const byCode = await fetchCards(game.id, "id", code, limit, key);
+      // apitcg가 죽어도(키 만료·500) 코드 검색은 살아있게: 실패하면 공식 사이트 직접 조회로 폴백.
+      let byCode: OnePieceCard[] = [];
+      try {
+        byCode = await fetchCards(game.id, "id", code, limit, key);
+      } catch {
+        // apitcg 장애 — 아래 공식 사이트 폴백으로
+      }
       if (byCode.length > 0) {
         const extra = await probeMissingParallels(code, byCode);
         return dedupeByImage([...byCode, ...extra]);
       }
+      // 코드 형태 질의는 여기서 확정 — 공식 사이트가 원피스 이미지의 authoritative 소스이므로
+      // 못 찾으면 빈 결과로 끝낸다(이름 검색으로 안 넘어감). apitcg가 죽었을 때 이름 검색까지
+      // 시도하면 500만 던지고 코드 질의엔 의미도 없다.
+      return await fetchOfficialByCode(code);
     }
   }
 
