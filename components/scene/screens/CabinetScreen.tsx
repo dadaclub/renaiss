@@ -203,6 +203,21 @@ function fmtDate(s: string): string {
     : d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
+/** 카드 아트 식별 키 — 같은 그림이면 같은 키(등급 무관). 중복 등록 판정용.
+ *  검색 결과를 고르면 그 imageUrl이 그대로 저장되므로 imageUrl을 기준으로 비교한다.
+ *  - /api/img?url=<원본> 프록시면 원본 URL을 풀고, 캐시버스터 쿼리스트링은 제거.
+ *  - 원피스식 카드 코드 파일명(OP01-016 / ST03-017_p1 / P-061)이면 그 코드로(대소문자·호스트 무관).
+ *  - 그 외(포켓몬 등)는 원본 URL 자체를 키로. 이미지 없는 수동 카드는 null(중복 판정에서 제외). */
+function artKey(imageUrl?: string): string | null {
+  if (!imageUrl) return null;
+  const m = imageUrl.match(/[?&]url=([^&]+)/);
+  const raw = (m ? decodeURIComponent(m[1]) : imageUrl).replace(/\?.*$/, "");
+  const code =
+    raw.match(/\/([A-Za-z]{1,3}\d{2}-\d{3}(?:_p\d+)?)\.(?:png|jpe?g|webp)/i)?.[1] ??
+    raw.match(/\/(P-\d{3}(?:_p\d+)?)\.(?:png|jpe?g|webp)/i)?.[1];
+  return code ? code.toUpperCase() : raw;
+}
+
 /* ================= 화면 로직 ================= */
 
 type SortKey = "newest" | "oldest" | "priceHigh" | "priceLow";
@@ -380,6 +395,12 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
         acquiredAt,
         emoji: "🃏",
         tint: TINTS[prev.length % TINTS.length],
+        // 온체인 카드는 tokenId로 Renaiss 카드 페이지 링크 자동 생성 —
+        // 새로고침(rowToCard) 전에도 방금 등록한 카드에 가격/링크가 바로 붙게.
+        priceUrl:
+          input.origin === "onchain" && input.tokenId
+            ? `https://www.renaiss.xyz/card/${input.tokenId}`
+            : undefined,
         fromDb: true,
       },
     ]);
@@ -387,6 +408,12 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
   }
 
   async function addPhysical(card: PhysicalInput) {
+    // 안전망 — 검색 그리드/등록 버튼에서 이미 막지만, 혹시 중복(카드 아트 기준)이면 저장하지 않음
+    const k = artKey(card.imageUrl);
+    if (k && shelfArtKeys.has(k)) {
+      setModal(null);
+      return;
+    }
     await saveCard({ ...card, origin: "physical" }, today());
   }
 
@@ -437,6 +464,17 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
       void supabase.from("showcase_cards").delete().eq("id", id).then();
     }
   }
+
+  // 이미 선반에 있는 카드 식별 — 중복 등록 방지(검색 결과 'On shelf' 표시 + 등록 차단, 카드 아트 기준)
+  const shelfArtKeys = useMemo(
+    () => new Set(cards.map((c) => artKey(c.imageUrl)).filter((k): k is string => !!k)),
+    [cards]
+  );
+  // 온체인 카드는 아트 키가 없으니 tokenId로 중복 판정 (토큰ID 수동 등록 시)
+  const shelfTokenIds = useMemo(
+    () => new Set(cards.map((c) => c.tokenId).filter((t): t is string => !!t)),
+    [cards]
+  );
 
   // 카드에 존재하는 컬렉션(프랜차이즈) 목록 — 드롭다운 옵션
   const collections = useMemo(
@@ -697,6 +735,8 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
           onSubmit={addPhysical}
           onAddOnchain={addOnchain}
           onSync={syncWallet}
+          existingArtKeys={shelfArtKeys}
+          existingTokenIds={shelfTokenIds}
           onClose={() => setModal(null)}
         />
       )}
@@ -707,6 +747,8 @@ export function CabinetScreen({ onClose }: { onClose: () => void }) {
           onAddOnchain={addOnchain}
           onSync={syncWallet}
           onRemove={removeCard}
+          existingArtKeys={shelfArtKeys}
+          existingTokenIds={shelfTokenIds}
           onClose={() => setModal(null)}
         />
       )}
@@ -760,6 +802,8 @@ function RegisterModal({
   onAddOnchain,
   onSync,
   onRemove,
+  existingArtKeys,
+  existingTokenIds,
   onClose,
 }: {
   /** 있으면 수정 모드 — 기존 실물 카드 값을 채워서 열고, 저장 시 그 카드를 덮어씀 */
@@ -769,12 +813,17 @@ function RegisterModal({
   onSync: () => void;
   /** 수정 모드에서 이 카드를 삭제 (상세의 삭제 버튼을 여기로 통합) */
   onRemove?: (id: string) => void;
+  /** 이미 선반에 있는 카드의 아트 키 — 검색 결과 'On shelf' 표시·중복 등록 차단 */
+  existingArtKeys: Set<string>;
+  /** 이미 선반에 있는 온체인 카드의 tokenId — 토큰ID 수동 등록 중복 차단 */
+  existingTokenIds: Set<string>;
   onClose: () => void;
 }) {
   const editing = initial !== undefined;
   const [mode, setMode] = useState<CardOrigin>(editing ? "physical" : "onchain");
   const [name, setName] = useState(initial?.name ?? "");
-  const [grade, setGrade] = useState(initial?.grade ?? "");
+  // 신규 실물 등록은 등급 기본값 PSA 10 (대부분 10등급 카드를 사므로 매번 입력 안 하게). 수정은 기존 등급 유지.
+  const [grade, setGrade] = useState(initial?.grade ?? "PSA 10");
   const [franchise, setFranchise] = useState(initial?.franchise ?? "");
   const [imageUrl, setImageUrl] = useState(initial?.imageUrl ?? "");
   // TCG 카드 검색 (apitcg 프록시 /api/opcard) — 기본은 전체 게임, 드롭다운으로 한정 가능
@@ -790,6 +839,7 @@ function RegisterModal({
   const [tokenId, setTokenId] = useState("");
   const [tokenLoading, setTokenLoading] = useState(false);
   const [tokenError, setTokenError] = useState(false);
+  const [tokenDup, setTokenDup] = useState(false); // 이미 선반에 있는 온체인 카드
   // 수정 모드 삭제 확인 (한 번 더 눌러야 실제 삭제)
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -820,13 +870,24 @@ function RegisterModal({
   async function handleAddByTokenId() {
     const id = tokenId.trim();
     if (!id) return;
+    // 입력한 토큰ID가 이미 선반에 있으면 조회 없이 바로 안내
+    if (existingTokenIds.has(id)) {
+      setTokenDup(true);
+      return;
+    }
     setTokenLoading(true);
     setTokenError(false);
+    setTokenDup(false);
     try {
       const res = await fetch(`/api/showcase?ids=${encodeURIComponent(id)}`);
       const d = (await res.json()) as { cards?: OnchainCardDto[] };
       if (res.ok && d.cards && d.cards.length > 0) {
-        onAddOnchain(d.cards[0]);
+        // 조회된 카드의 실제 tokenId가 이미 있으면 중복 안내 (입력값과 표기가 다를 수 있어 한 번 더 확인)
+        if (existingTokenIds.has(d.cards[0].tokenId)) {
+          setTokenDup(true);
+        } else {
+          onAddOnchain(d.cards[0]);
+        }
       } else {
         setTokenError(true);
       }
@@ -854,6 +915,12 @@ function RegisterModal({
 
   const inputCls =
     "w-full bg-cream/[0.05] border border-glassline rounded-xl px-3.5 py-2.5 text-[13px] text-cream placeholder:text-creamdim/60 outline-none focus:border-amber transition-colors";
+
+  // 등록하려는 실물 카드가 이미 선반에 있는지(아트 기준). 수정 모드는 자기 자신이라 제외.
+  // 검색 그리드에서 이미 막지만, 직접 붙인 이미지 URL이 기존 카드와 같을 때의 최종 방어선.
+  const physicalDup =
+    !editing && !!artKey(imageUrl.trim() || undefined) &&
+    existingArtKeys.has(artKey(imageUrl.trim() || undefined) as string);
 
   return (
     <div className="fixed inset-0 z-[60] bg-bg/70 backdrop-blur-sm" onClick={onClose}>
@@ -901,7 +968,7 @@ function RegisterModal({
             <div className="flex gap-2">
               <input
                 value={tokenId}
-                onChange={(e) => { setTokenId(e.target.value); setTokenError(false); }}
+                onChange={(e) => { setTokenId(e.target.value); setTokenError(false); setTokenDup(false); }}
                 onKeyDown={(e) => e.key === "Enter" && handleAddByTokenId()}
                 placeholder="Token ID"
                 className={inputCls}
@@ -918,6 +985,12 @@ function RegisterModal({
               <p className="flex items-start gap-1.5 text-[11px] text-creamdim leading-relaxed -mt-1">
                 <Warning size={13} weight="fill" className="shrink-0 mt-px text-down" aria-hidden />
                 Couldn&apos;t find a card with that token ID.
+              </p>
+            )}
+            {tokenDup && (
+              <p className="flex items-start gap-1.5 text-[11px] text-creamdim leading-relaxed -mt-1">
+                <Warning size={13} weight="fill" className="shrink-0 mt-px text-amber" aria-hidden />
+                This card is already on your shelf.
               </p>
             )}
           </div>
@@ -949,25 +1022,49 @@ function RegisterModal({
             {/* 검색 결과 그리드 — 카드 클릭 시 이름·이미지 자동 채움 */}
             {results.length > 0 && (
               <div className="grid grid-cols-4 gap-2 max-h-[188px] overflow-y-auto pr-1">
-                {results.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => pickCard(c)}
-                    title={`${c.name}${c.setName ? ` · ${c.setName}` : ""}`}
-                    className={`rounded-md overflow-hidden border transition ${
-                      pickedId === c.id ? "border-amber ring-2 ring-amber" : "border-glassline hover:border-cream/50"
-                    }`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={c.imageUrl} alt={c.name} draggable={false} className="w-full aspect-[5/7] object-cover" />
-                    {/* 카드 코드 — 같은 캐릭터 판본이 수십 장일 때 유일한 구분자.
-                        일본판은 내부 id 대신 세트코드(SM8b 등)가 카드 실물 라벨과 대응 */}
-                    <span className="block text-center text-[9px] font-bold text-creamdim py-0.5 truncate">
-                      {c.id.startsWith("jp-") && c.setName ? c.setName : c.id}
-                    </span>
-                  </button>
-                ))}
+                {results.map((c) => {
+                  // 이미 선반에 있는 카드(아트 기준) — 다시 못 고르게 하고 'On shelf' 표시
+                  const onShelf = existingArtKeys.has(artKey(c.imageUrl) ?? "");
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => !onShelf && pickCard(c)}
+                      disabled={onShelf}
+                      aria-disabled={onShelf}
+                      title={
+                        onShelf
+                          ? `${c.name} · already on your shelf`
+                          : `${c.name}${c.setName ? ` · ${c.setName}` : ""}`
+                      }
+                      className={`relative rounded-md overflow-hidden border transition ${
+                        onShelf
+                          ? "border-glassline opacity-60 cursor-not-allowed"
+                          : pickedId === c.id
+                            ? "border-amber ring-2 ring-amber"
+                            : "border-glassline hover:border-cream/50"
+                      }`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={c.imageUrl}
+                        alt={c.name}
+                        draggable={false}
+                        className={`w-full aspect-[5/7] object-cover ${onShelf ? "grayscale" : ""}`}
+                      />
+                      {onShelf && (
+                        <span className="absolute inset-x-0 top-0 bg-amber/90 text-inkdark text-[8px] font-bold text-center py-0.5 tracking-wide">
+                          On shelf
+                        </span>
+                      )}
+                      {/* 카드 코드 — 같은 캐릭터 판본이 수십 장일 때 유일한 구분자.
+                          일본판은 내부 id 대신 세트코드(SM8b 등)가 카드 실물 라벨과 대응 */}
+                      <span className="block text-center text-[9px] font-bold text-creamdim py-0.5 truncate">
+                        {c.id.startsWith("jp-") && c.setName ? c.setName : c.id}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             )}
             {searched && !searching && results.length === 0 && (
@@ -1003,6 +1100,7 @@ function RegisterModal({
             <button
               onClick={() =>
                 name.trim() &&
+                !physicalDup &&
                 onSubmit({
                   name: name.trim(),
                   grade: grade.trim() || "Raw",
@@ -1010,10 +1108,10 @@ function RegisterModal({
                   imageUrl: imageUrl.trim() || undefined,
                 })
               }
-              disabled={!name.trim()}
+              disabled={!name.trim() || physicalDup}
               className="bg-amber text-inkdark font-bold rounded-xl px-5 py-2.5 text-sm hover:brightness-110 transition disabled:opacity-40"
             >
-              {editing ? "Save changes" : "Add to showcase"}
+              {editing ? "Save changes" : physicalDup ? "Already on shelf" : "Add to showcase"}
             </button>
             {/* 삭제 — 수정 모드에서만. 상세 화면의 삭제 버튼을 여기로 통합. 한 번 더 확인 후 삭제 */}
             {editing && onRemove && initial && (
@@ -1226,21 +1324,35 @@ function CardDetail({
           <div className="text-[12px] text-creamdim font-semibold">{fmtDate(card.acquiredAt)}</div>
         )}
 
-        {card.priceUsd !== undefined && (
+        {(card.priceUsd !== undefined || (card.origin === "onchain" && card.priceUrl)) && (
           <div className="text-center">
-            {card.priceUrl ? (
+            {card.priceUsd !== undefined ? (
+              card.priceUrl ? (
+                <a
+                  href={card.priceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={card.origin === "onchain" ? "View on Renaiss" : "View price source"}
+                  className="text-cream text-xl font-extrabold inline-flex items-center gap-1 hover:text-amber transition-colors underline decoration-transparent hover:decoration-amber/60 underline-offset-4"
+                >
+                  {fmtUsd(card.priceUsd)}
+                  <ArrowSquareOut size={14} weight="bold" aria-hidden className="opacity-60" />
+                </a>
+              ) : (
+                <div className="text-cream text-xl font-extrabold">{fmtUsd(card.priceUsd)}</div>
+              )
+            ) : (
+              // 온체인인데 Renaiss에 시세(즉시구매가/FMV)가 없는 카드 — 가격 대신 카드 페이지 링크만
               <a
                 href={card.priceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                title={card.origin === "onchain" ? "View on Renaiss" : "View price source"}
-                className="text-cream text-xl font-extrabold inline-flex items-center gap-1 hover:text-amber transition-colors underline decoration-transparent hover:decoration-amber/60 underline-offset-4"
+                title="View on Renaiss"
+                className="text-creamdim text-[13px] font-bold inline-flex items-center gap-1 hover:text-amber transition-colors"
               >
-                {fmtUsd(card.priceUsd)}
-                <ArrowSquareOut size={14} weight="bold" aria-hidden className="opacity-60" />
+                View on Renaiss
+                <ArrowSquareOut size={13} weight="bold" aria-hidden className="opacity-60" />
               </a>
-            ) : (
-              <div className="text-cream text-xl font-extrabold">{fmtUsd(card.priceUsd)}</div>
             )}
             {card.delta30d !== undefined && (
               <div
